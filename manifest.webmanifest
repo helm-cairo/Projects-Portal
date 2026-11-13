@@ -1,9 +1,10 @@
 {
   "name": "بوابة أنظمة حلم",
   "short_name": "حلم",
-  "description": "بوابة فريق حلم: تسجيل حضور الدروس، تسجيل الحالات، ولوحة التبرعات.",
+  "description": "بوابة فريق حلم: نظام الحضور والدورات، سجل الحالات، والتبرعات.",
   "lang": "ar",
   "dir": "rtl",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -11,23 +12,12 @@
   "background_color": "#ffffff",
   "theme_color": "#006838",
   "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "نظام الحضور والدورات", "short_name": "الحضور", "url": "attendance/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "سجل الحالات", "short_name": "الحالات", "url": "cases/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

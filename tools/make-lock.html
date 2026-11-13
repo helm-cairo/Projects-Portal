@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>مولّد قفل جدول التبرعات — حلم</title>
+<!--
+  Helm Portal — make-lock tool (runs ONLY on your own device).
+  It encrypts the donations-sheet link with your PIN, so the link never appears in the
+  public code. Nothing is sent anywhere: no network requests, no saving.
+  Method (must match index.html): PBKDF2-SHA-256, 250000 iterations, random 16-byte salt
+  -> AES-GCM 256-bit key, random 12-byte IV. Output JSON: {"s","i","v","c"} (base64).
+-->
+<style>
+:root{--forest:#006838;--forest-h:#004d29;--mint:#f3faf6;--sunk:#e6f4ec;--ink:#13261c;--muted:#4a5d52;--border:#d3e6db;--danger:#b42318}
+*{box-sizing:border-box}
+body{margin:0;background:var(--mint);color:var(--ink);font-family:"Cairo","Segoe UI",Tahoma,system-ui,sans-serif;line-height:1.75;font-size:16px}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:24px;margin:0 0 4px}
+h2{font-size:18px;margin:0 0 8px}
+p{margin:0 0 12px}
+.muted{color:var(--muted);font-size:14px}
+.card{background:#fff;border:1px solid var(--border);border-radius:24px;padding:20px;margin-top:16px}
+label{display:block;font-weight:600;font-size:14px;margin:12px 0 4px}
+input,textarea{width:100%;font:inherit;padding:10px 14px;border:2px solid #5f7d6c;border-radius:8px;background:#fff;color:var(--ink)}
+textarea{min-height:110px;direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+input:focus,textarea:focus{outline:2px solid var(--forest);outline-offset:2px;border-color:var(--forest)}
+.ltr{direction:ltr;text-align:left}
+button{font:inherit;font-weight:600;border:2px solid var(--forest);background:var(--forest);color:#fff;border-radius:14px;padding:10px 20px;min-height:46px;cursor:pointer;margin-top:14px}
+button:hover{background:var(--forest-h);border-color:var(--forest-h)}
+button.sec{background:#fff;color:var(--forest)}
+button.sec:hover{background:var(--sunk)}
+.msg{margin-top:12px;padding:10px 14px;border-radius:14px;font-size:14px}
+.ok{background:var(--sunk);color:var(--forest)}
+.err{background:#fdecea;color:var(--danger)}
+ol{padding-inline-start:20px;margin:8px 0 0}
+code{background:var(--sunk);border-radius:6px;padding:0 6px;direction:ltr;unicode-bidi:embed}
+:focus-visible{outline:2px solid var(--forest);outline-offset:2px}
+</style>
+</head>
+<body>
+<main>
+  <h1>مولّد قفل جدول التبرعات</h1>
+  <p class="muted">يعمل على جهازك فقط، ولا يُرسل أي شيء إلى الإنترنت. لا تشاركي الرابط ولا الرمز في أي مكان.</p>
+
+  <section class="card" aria-labelledby="h1a">
+    <h2 id="h1a">١) إنشاء القفل</h2>
+    <label for="url">رابط جدول التبرعات (Google Sheets)</label>
+    <input id="url" class="ltr" type="url" autocomplete="off" spellcheck="false" placeholder="https://docs.google.com/spreadsheets/d/...">
+    <label for="pin1">الرمز السري الجديد</label>
+    <input id="pin1" class="ltr" type="password" autocomplete="new-password" inputmode="numeric">
+    <label for="pin2">أعيدي كتابة الرمز السري</label>
+    <input id="pin2" class="ltr" type="password" autocomplete="new-password" inputmode="numeric">
+    <p class="muted" style="margin-top:6px">استخدمي رمزًا من ٦ أرقام أو أكثر. كلما طال كان أصعب في التخمين.</p>
+    <button type="button" id="make">إنشاء القفل</button>
+    <div id="makeMsg" role="status"></div>
+    <label for="out">النص المشفّر (انسخيه)</label>
+    <textarea id="out" readonly></textarea>
+    <button type="button" class="sec" id="copy">نسخ النص</button>
+    <ol class="muted">
+      <li>افتحي الملف <code>index.html</code> في المشروع.</li>
+      <li>ابحثي عن السطر <code>var DONATIONS_LOCK = '';</code></li>
+      <li>الصقي النص بين العلامتين <code>''</code> ثم احفظي الملف وارفعيه.</li>
+    </ol>
+  </section>
+
+  <section class="card" aria-labelledby="h2a">
+    <h2 id="h2a">٢) تجربة القفل (اختياري)</h2>
+    <p class="muted">للتأكد قبل الرفع: الصقي النص المشفّر واكتبي الرمز.</p>
+    <label for="lock">النص المشفّر</label>
+    <textarea id="lock" spellcheck="false"></textarea>
+    <label for="pin3">الرمز السري</label>
+    <input id="pin3" class="ltr" type="password" autocomplete="off" inputmode="numeric">
+    <button type="button" id="test">تجربة</button>
+    <div id="testMsg" role="status"></div>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  var ITER = 250000;
+  var $ = function (id) { return document.getElementById(id); };
+  function toB64(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); }
+  function fromB64(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function latin(s) { return String(s).replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }); }
+  function say(id, kind, text) { $(id).innerHTML = '<div class="msg ' + kind + '">' + text + '</div>'; }
+  async function keyFrom(pin, salt, iter, usage) {
+    var km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, km, { name: 'AES-GCM', length: 256 }, false, [usage]);
+  }
+  if (!window.crypto || !crypto.subtle) {
+    say('makeMsg', 'err', 'خطأ: هذا المتصفح لا يدعم التشفير هنا. افتحي الملف في Chrome، أو من خلال http://localhost.');
+  }
+  $('make').onclick = async function () {
+    $('out').value = '';
+    var url = $('url').value.trim(), p1 = latin($('pin1').value), p2 = latin($('pin2').value);
+    if (!/^https:\/\/(docs|drive)\.google\.com\//.test(url)) { say('makeMsg', 'err', 'خطأ: الرابط يجب أن يبدأ بـ https://docs.google.com/ أو https://drive.google.com/'); return; }
+    if (p1.length < 4) { say('makeMsg', 'err', 'خطأ: الرمز قصير جدًا.'); return; }
+    if (p1 !== p2) { say('makeMsg', 'err', 'خطأ: الرمزان غير متطابقين.'); return; }
+    say('makeMsg', 'ok', 'جارٍ التشفير…');
+    try {
+      var salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
+      var key = await keyFrom(p1, salt, ITER, 'encrypt');
+      var ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(url)));
+      $('out').value = JSON.stringify({ s: toB64(salt), i: ITER, v: toB64(iv), c: toB64(ct) });
+      $('pin1').value = ''; $('pin2').value = ''; $('url').value = '';
+      say('makeMsg', 'ok', 'تم. انسخي النص المشفّر بالأسفل. (مُسحت الخانات للأمان.)');
+    } catch (e) { say('makeMsg', 'err', 'خطأ: تعذّر التشفير.'); }
+  };
+  $('copy').onclick = function () {
+    if (!$('out').value) return;
+    $('out').select();
+    if (navigator.clipboard) navigator.clipboard.writeText($('out').value);
+    else document.execCommand('copy');
+    this.textContent = 'تم النسخ';
+  };
+  $('test').onclick = async function () {
+    try {
+      var L = JSON.parse($('lock').value.trim());
+      var key = await keyFrom(latin($('pin3').value), fromB64(L.s), L.i, 'decrypt');
+      var pt = new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(L.v) }, key, fromB64(L.c)));
+      var ok = /^https:\/\/(docs|drive)\.google\.com\//.test(pt);
+      say('testMsg', ok ? 'ok' : 'err', ok ? 'القفل يعمل: الرمز صحيح ويفتح رابطًا من Google.' : 'خطأ: فُتح القفل لكن الرابط ليس من Google.');
+    } catch (e) { say('testMsg', 'err', 'خطأ: الرمز غير صحيح أو النص المشفّر ناقص.'); }
+    $('pin3').value = '';
+  };
+})();
+</script>
+</body>
+</html>
