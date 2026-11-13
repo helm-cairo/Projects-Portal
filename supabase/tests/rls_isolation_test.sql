@@ -80,6 +80,13 @@ begin
     exception when others then ok := true;
     end;
     res := res || jsonb_build_object('test', 'attendance-only user cannot add a case', 'expected', 'blocked', 'actual', case when ok then 'blocked' else 'ALLOWED' end, 'pass', ok);
+    select count(*) into n from public.cases_cases_full;
+    res := res || jsonb_build_object('test', 'attendance-only user reads cases_cases_full (view)', 'expected', '0', 'actual', n::text, 'pass', n = 0);
+    perform public.helm_patch_doc('attendance_sessions', 'rls_attendance_sessions', '{"present":{"stuA":true}}');
+    perform public.helm_patch_doc('attendance_sessions', 'rls_attendance_sessions', '{"present":{"stuB":true}}');
+    select count(*) into n from public.attendance_sessions
+      where id = 'rls_attendance_sessions' and data->'present' ? 'stuA' and data->'present' ? 'stuB' and data->>'name' = 'test';
+    res := res || jsonb_build_object('test', 'attendance update keeps other students (deep merge)', 'expected', '1', 'actual', n::text, 'pass', n = 1);
     select count(*) into n from public.system_members('cases');
     res := res || jsonb_build_object('test', 'attendance-only user lists cases members', 'expected', '0', 'actual', n::text, 'pass', n = 0);
     select public.cases_nid_taken('29001010000001') into b;
@@ -118,6 +125,8 @@ begin
     res := res || jsonb_build_object('test', 'researcher sees only her own cases', 'expected', '1', 'actual', n::text, 'pass', n = 1);
     select count(*) into n from public.cases_private;
     res := res || jsonb_build_object('test', 'researcher sees national ID of her own case only', 'expected', '1', 'actual', n::text, 'pass', n = 1);
+    select count(*) into n from public.cases_cases_full;
+    res := res || jsonb_build_object('test', 'researcher: combined view shows her own case only', 'expected', '1', 'actual', n::text, 'pass', n = 1);
     select count(*) into n from public.cases_deliveries;
     res := res || jsonb_build_object('test', 'researcher sees deliveries of her own cases only', 'expected', '1', 'actual', n::text, 'pass', n = 1);
     update public.cases_cases set data = data || '{"idName":"changed"}' where id = 'rls_c2';
@@ -142,6 +151,10 @@ begin
     res := res || jsonb_build_object('test', 'national ID is not stored inside case data', 'expected', '0', 'actual', n::text, 'pass', n = 0);
     select count(*) into n from public.cases_cases where nid_last4 is not null;
     res := res || jsonb_build_object('test', 'viewer gets only the last 4 digits (for masking)', 'expected', '2', 'actual', n::text, 'pass', n = 2);
+    select count(*) into n from public.cases_cases_full where data ? 'nationalId' or data ? 'idFrontFileId';
+    res := res || jsonb_build_object('test', 'viewer: combined view hides national IDs and ID images', 'expected', '0', 'actual', n::text, 'pass', n = 0);
+    select count(*) into n from public.cases_cases_full where data->>'nidMasked' in ('0001', '0002');
+    res := res || jsonb_build_object('test', 'viewer: combined view shows last 4 digits only', 'expected', '2', 'actual', n::text, 'pass', n = 2);
     begin
       update public.cases_cases set data = data || '{"idName":"changed"}' where id = 'rls_c1';
       get diagnostics n = row_count;
@@ -156,6 +169,8 @@ begin
     perform set_config('role', 'authenticated', true);
     select count(*) into n from public.cases_private;
     res := res || jsonb_build_object('test', 'approver sees full national IDs', 'expected', '2', 'actual', n::text, 'pass', n = 2);
+    select count(*) into n from public.cases_cases_full where data->>'nationalId' like '2900101000000_';
+    res := res || jsonb_build_object('test', 'approver: combined view shows full national IDs', 'expected', '2', 'actual', n::text, 'pass', n = 2);
     begin
       delete from public.cases_cases where id = 'rls_c1';
       get diagnostics n = row_count;

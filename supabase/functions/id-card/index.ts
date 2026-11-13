@@ -130,7 +130,10 @@ Deno.serve(async (req) => {
   if (!jwt) return json({ ok: false, error: "unauthorized" }, 401);
 
   // A client that acts AS THE CALLER: every query below goes through RLS.
-  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+  // Public key: the project's anon key, or (after legacy keys are retired) the
+  // publishable key the browser sent in the "apikey" header.
+  const publicKey = Deno.env.get("SUPABASE_ANON_KEY") || req.headers.get("apikey") || "";
+  const asUser = createClient(Deno.env.get("SUPABASE_URL")!, publicKey, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${jwt}` } },
   });
