@@ -1866,6 +1866,11 @@ function loadIdPreviews(root){
     } catch(e){ idPrevCache.delete(fid); if(note) note.textContent = idErrText(e && e.code); }
   });
 }
+// the case page can be redrawn (live updates); load previews whenever new ones appear
+new MutationObserver(() => {
+  const root = document.getElementById('sheetRoot');
+  if(root && root.querySelector('img[data-idprev]:not([src])')) loadIdPreviews(root);
+}).observe(document.getElementById('sheetRoot'), {childList: true, subtree: true});
 // rename the case's Drive folder + photos to "code - name - Front/Back"; trash replaced photos
 function renameDrive(caseId, trash){
   const c = S.cases.get(caseId); if(!c || !sb) return;
