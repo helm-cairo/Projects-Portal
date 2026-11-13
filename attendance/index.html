@@ -25,6 +25,10 @@ a{color:inherit;text-decoration:none}
 .hd .t.disp{font-family:"Reem Kufi","Cairo",system-ui,sans-serif;font-size:20px}
 .hd .back{border:0;background:var(--sunk);color:var(--g2);border-radius:14px;width:40px;height:40px;display:grid;place-items:center;cursor:pointer;transition:background var(--ease)}
 .hd .back:hover{background:#d3e6db}
+.hd .portal{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:14px;background:var(--sunk);color:var(--g2);font-weight:600;font-size:14px;flex:none;transition:background var(--ease)}
+.hd .portal:hover{background:#d3e6db}
+.hd .portal .i{width:18px;height:18px}
+@media(max-width:360px){.hd .portal span{display:none}}
 .wrap{max-width:720px;margin:0 auto;padding:16px}
 h2{font-size:18px;line-height:28px;margin:0 0 8px;color:var(--ink);font-weight:700;display:flex;align-items:center;gap:8px}
 h2 .i{color:var(--g2)}
@@ -791,7 +795,7 @@ function stuRow(s,set){
   const info=[s.governorate,s.area,ageOf(s)?ageOf(s)+' سنة':'',s.phone&&!s.phone.startsWith('@')?s.phone:''].filter(Boolean).map(esc).join(' • ');
   return `<div class="srow ${on?'sel':''}" data-act="${picking?'tsel':'detail'}" data-id="${s.id}" data-set="${set||'sel'}">${picking?`<span class="chk ${on?'on':''}">${on?'✓':''}</span>`:`<span class="chk ${on?'on':''}" data-act="tsel" data-id="${s.id}" data-set="sel">${on?'✓':''}</span>`}<div class="info"><b>${esc(s.name)}</b><small>${info||'—'}</small></div>${picking?'':waBtn(s)}</div>`;
 }
-const header = (title,back,disp) => `<div class="hd"><img src="${LOGO}" alt="حلم"><div class="t" aria-label="${esc(title)}"></div>${back?`<button class="back" data-act="back" aria-label="رجوع">${ICON('arrow')}</button>`:''}</div>`;
+const header = (title,back,disp) => `<div class="hd"><a href="../" aria-label="البوابة"><img src="${LOGO}" alt="حلم"></a><div class="t" aria-label="${esc(title)}"></div><a class="portal" href="../">${ICON('home')}<span>البوابة</span></a>${back?`<button class="back" data-act="back" aria-label="رجوع">${ICON('arrow')}</button>`:''}</div>`;
 function nav(){ const t=[['home','home','الرئيسية'],['students','users','الطلاب'],['courses','book','الدورات'],['analytics','chart','التحليلات'],['more','more','المزيد']]; return `<div class="nav">${t.map(x=>`<button class="${ui.tab===x[0]?'on':''}" data-act="nav" data-t="${x[0]}"><i>${ICON(x[1])}</i>${x[2]}</button>`).join('')}</div>`; }
 
 function courseStart(c){ const s=c.startDate||((sessOf(c.id)[0]||{}).date); if(!s) return ''; const d=parseD(s); return d.getDate()+' '+MONTHS[d.getMonth()]+' '+d.getFullYear(); }
