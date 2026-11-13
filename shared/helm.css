@@ -1,0 +1,107 @@
+/* Helm design system — shared by the portal, attendance and cases. */
+:root{
+  --brand-green:#2bb673; --brand-deep:#009444; --brand-forest:#006838; --brand-forest-hover:#004d29;
+  --accent-lime:#8dc63f; --accent-yellow:#d7df23;
+  --surface:#ffffff; --surface-mint:#f3faf6; --surface-sunken:#e6f4ec;
+  --ink:#13261c; --ink-muted:#4a5d52; --on-brand:#ffffff;
+  --border:#d3e6db; --border-strong:#5f7d6c; --focus-ring:#006838;
+  --danger:#b42318; --danger-surface:#fdecea;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px; --space-8:32px; --space-12:48px;
+  --radius-sm:8px; --radius-md:14px; --radius-lg:24px; --radius-pill:999px;
+  --shadow-raised:0 10px 30px rgba(0,104,56,.16);
+  --f-display:"Reem Kufi","Cairo",system-ui,sans-serif;
+  --f-sans:"Cairo","Segoe UI",Tahoma,system-ui,sans-serif;
+  --f-quran:"Amiri",serif;
+  --ease:cubic-bezier(.22,.7,.2,1);
+  --t-fast:160ms;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface-mint);color:var(--ink);font-family:var(--f-sans);font-size:16px;line-height:1.75;overflow-x:hidden}
+a{color:var(--brand-forest)}
+:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+[hidden]{display:none !important}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);font-family:var(--f-sans);font-weight:600;font-size:15px;line-height:22px;padding:var(--space-3) var(--space-6);border-radius:var(--radius-md);text-decoration:none;cursor:pointer;border:2px solid transparent;min-height:46px;transition:background-color var(--t-fast) ease-out,border-color var(--t-fast) ease-out,color var(--t-fast) ease-out}
+.btn svg{width:18px;height:18px;flex:none}
+.btn-primary{background:var(--brand-forest);color:var(--on-brand)}
+.btn-primary:hover{background:var(--brand-forest-hover)}
+.btn-secondary{background:var(--surface);color:var(--brand-forest);border-color:var(--brand-forest)}
+.btn-secondary:hover{background:var(--surface-sunken)}
+.btn-ghost{background:transparent;color:var(--brand-forest);padding-inline:var(--space-3)}
+.btn-ghost:hover{background:var(--surface-sunken)}
+.btn-block{width:100%}
+.btn:disabled,.btn[aria-disabled="true"]{background:var(--surface-sunken);color:var(--ink-muted);border-color:var(--border);cursor:not-allowed}
+
+/* ---------- forms ---------- */
+.field{display:flex;flex-direction:column;gap:var(--space-1);margin-bottom:var(--space-4)}
+.field label{font-weight:600;font-size:14px}
+.field .hint{font-size:13px;color:var(--ink-muted);line-height:1.6}
+.input{width:100%;font-family:var(--f-sans);font-size:16px;padding:var(--space-3) var(--space-4);border:2px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--ink);min-height:48px;transition:border-color var(--t-fast) ease-out}
+.input:focus{border-color:var(--brand-forest);outline:none;box-shadow:0 0 0 2px var(--brand-forest)}
+.input[dir="ltr"]{text-align:left}
+.pw-wrap{position:relative}
+/* password inputs are LTR; the eye button sits on the right edge in both directions */
+.pw-wrap .input{padding-right:52px;padding-left:16px}
+.pw-toggle{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:44px;height:40px;border:0;background:transparent;color:var(--ink-muted);border-radius:var(--radius-sm);cursor:pointer;display:grid;place-items:center}
+.pw-toggle:hover{color:var(--brand-forest);background:var(--surface-sunken)}
+.pw-toggle svg{width:20px;height:20px}
+
+/* ---------- messages ---------- */
+.msg{display:flex;gap:var(--space-2);align-items:flex-start;border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:14px;line-height:1.7;margin-bottom:var(--space-4)}
+.msg svg{width:20px;height:20px;flex:none;margin-top:2px}
+.msg-error{background:var(--danger-surface);color:var(--danger);border:1px solid #f4c7c3}
+.msg-info{background:var(--surface-sunken);color:var(--ink);border:1px solid var(--border)}
+.msg b{font-weight:700}
+
+/* ---------- badges ---------- */
+.badge{display:inline-flex;align-items:center;gap:var(--space-1);border-radius:var(--radius-pill);padding:2px var(--space-3);font-size:13px;font-weight:600;background:var(--surface-sunken);color:var(--brand-forest);border:1px solid var(--border)}
+
+/* ---------- logo ---------- */
+.logo-panel{background:var(--surface);border-radius:var(--radius-lg);padding:var(--space-2) var(--space-4);display:inline-flex;align-items:center;box-shadow:0 12px 30px rgba(0,0,0,.18)}
+.logo-panel img{display:block;height:52px;width:auto}
+
+/* ---------- auth pages (login / choose password) ---------- */
+.auth-hero{position:relative;background:var(--brand-forest);color:var(--on-brand);padding:var(--space-8) var(--space-4) 120px;overflow:hidden;isolation:isolate;text-align:center}
+.auth-hero .blob{position:absolute;border-radius:60% 40% 55% 45% / 50% 60% 40% 50%;z-index:-1;pointer-events:none}
+.auth-hero .b1{width:300px;height:300px;background:var(--brand-deep);opacity:.55;top:-120px;left:-90px;animation:drift 16s ease-in-out infinite}
+.auth-hero .b2{width:200px;height:200px;background:var(--accent-lime);opacity:.16;bottom:20px;right:-70px;animation:drift 20s ease-in-out infinite reverse}
+.auth-hero .back{position:absolute;inset-inline-start:var(--space-4);top:var(--space-4);color:var(--on-brand);text-decoration:none;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:var(--space-1);padding:var(--space-2) var(--space-3);border-radius:var(--radius-md)}
+.auth-hero .back:hover{background:rgba(255,255,255,.12)}
+.auth-hero .back svg{width:18px;height:18px}
+.auth-hero .logo-panel{margin-top:var(--space-8);animation:floaty 7s ease-in-out infinite}
+.auth-hero h1{font-family:var(--f-display);font-weight:700;font-size:clamp(28px,7vw,40px);line-height:1.4;margin:var(--space-4) 0 0}
+.auth-hero p{margin:var(--space-1) 0 0;opacity:.92}
+.auth-main{max-width:440px;margin:-88px auto var(--space-12);padding-inline:var(--space-4);position:relative;z-index:2}
+.auth-card{background:var(--surface);border-radius:var(--radius-lg);box-shadow:var(--shadow-raised);padding:var(--space-6);border:1px solid var(--border);animation:rise .35s var(--ease) both}
+.auth-card h2{font-family:var(--f-display);font-size:24px;line-height:1.5;margin:0 0 var(--space-1)}
+.auth-card .sub{color:var(--ink-muted);margin:0 0 var(--space-6);font-size:15px}
+.auth-links{display:flex;justify-content:center;margin-top:var(--space-3)}
+.auth-foot{text-align:center;color:var(--ink-muted);font-size:13px;margin-top:var(--space-6)}
+.rules{list-style:none;padding:0;margin:0 0 var(--space-4);font-size:14px;color:var(--ink-muted)}
+.rules li{display:flex;align-items:center;gap:var(--space-2)}
+.rules li svg{width:16px;height:16px;flex:none}
+.rules li.ok{color:var(--brand-forest)}
+.spinner{width:18px;height:18px;border:2px solid currentColor;border-inline-end-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+
+/* ---------- app shell (header inside each system) ---------- */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+.topbar .in{max-width:1100px;margin:0 auto;padding:var(--space-2) var(--space-4);display:flex;align-items:center;gap:var(--space-3)}
+.topbar img{height:40px;width:auto;display:block}
+.topbar .title{font-family:var(--f-display);font-weight:700;font-size:20px;line-height:1.3}
+.topbar .grow{flex:1}
+.topbar .who{font-size:14px;color:var(--ink-muted);display:none}
+@media(min-width:640px){.topbar .who{display:block}}
+.page{max-width:1100px;margin:0 auto;padding:var(--space-6) var(--space-4)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-6)}
+
+/* ---------- motion ---------- */
+@keyframes drift{0%,100%{transform:translate(0,0) rotate(0)}50%{transform:translate(26px,-22px) rotate(14deg)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}

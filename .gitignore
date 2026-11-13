@@ -1,0 +1,14 @@
+# Original files and real data never go to GitHub
+existing/
+private/
+*.csv
+*.xlsx
+*.sql.local
+.env
+.env.*
+supabase/.temp/
+supabase/.branches/
+node_modules/
+.DS_Store
+Thumbs.db
+.claude/

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#006838">
+<title>نظام الحضور والدورات — حلم</title>
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/helm.css">
+</head>
+<body>
+<header class="topbar"><div class="in">
+  <a href="../" aria-label="البوابة"><img src="../shared/logo.png" alt="حلم" width="85" height="40"></a>
+  <span class="title">نظام الحضور والدورات</span>
+  <span class="grow"></span>
+  <span class="who" id="who"></span>
+  <button class="btn btn-secondary" type="button" id="out" data-label="خروج">خروج</button>
+</div></header>
+<main class="page">
+  <section class="panel" id="main"><p>جارٍ التحقق من الصلاحية…</p></section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script src="../shared/helm-auth.js"></script>
+<script>
+(async function () {
+  // Checks the session AND access to this system on every page load.
+  var g = await HelmAuth.guard('attendance', 'login.html');
+  var roles = { member: 'عضو', admin: 'مسؤول', approver: 'معتمد', researcher: 'باحثة', viewer: 'عرض فقط' };
+  var name = g.access.full_name || '';
+  document.getElementById('who').textContent = name + ' · ' + (roles[g.role] || g.role);
+  document.getElementById('main').innerHTML =
+    '<h2 style="font-family:var(--f-display);margin:0 0 8px">مرحبًا ' + name.replace(/[<>&"]/g, '') + '</h2>' +
+    '<p style="margin:0 0 8px">تم تسجيل الدخول بنجاح. دورك: <span class="badge">' + (roles[g.role] || g.role) + '</span></p>' +
+    '<p style="color:var(--ink-muted);margin:0">سيُنقل النظام الكامل إلى هنا في المرحلة الثانية.</p>';
+  document.getElementById('out').onclick = async function () { await g.sb.auth.signOut(); location.replace('login.html'); };
+})();
+</script>
+</body>
+</html>
