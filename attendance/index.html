@@ -143,7 +143,7 @@ const SEED = null;
 const LOGO = "../shared/logo.png";
 let db = null;
 const claude = { use: async n => n === 'downloads' ? { save: async ({filename, data}) => HelmDB.download(filename, data) } : null };
-const S = {courses:[], students:[], sessions:[], payments:[], expenses:[], messages:[], groups:[], settings:[], users:[], usersLoaded:false, map:{}, byC:{}, loaded:{c:false,s:false,x:false}};
+const S = {signups:[], links:[], courses:[], students:[], sessions:[], payments:[], expenses:[], messages:[], groups:[], settings:[], users:[], usersLoaded:false, map:{}, byC:{}, loaded:{c:false,s:false,x:false}};
 const ui = {tab:'home', cid:null, ctab:'quick', q:'', fGender:'all', fGov:'all', fCourse:'all', fAge:'all', selMode:false, sel:new Set(), pick:new Set(), pq:'', pg:'all', quick:{}, qinit:false, modal:null, msg:null, toast:'', stale:false, importing:false, anCourse:'all', grid:{q:''}, msel:new Set(), mabs:false, certStyle:'f1', mses:null, period:null, mf:'all', asel:{}, mm:'', ra:'', gname:''};
 const METHODS=['كاش','فودافون','إنستا','اتصالات','أخرى'];
 const SOURCES=['فيسبوك','إنستجرام','واتساب','صديقة/معرفة','يوتيوب','جوجل','إعلان ممول','أخرى'];
@@ -279,6 +279,17 @@ function analyticsRows(cid){
 
 // ---------- actions ----------
 const A = {
+  signupLink(d){ ui.qr=''; ui.modal={type:'signupLink', id:d.id}; render(); makeQr(d.id); },
+  async linkCreate(d){ const c=S.courses.find(x=>x.id===d.id); if(!c) return; const tok=newToken(); const old=activeLink(c.id);
+    if(old) await dupd('signup_links/'+old.id,{active:false});
+    await dset('signup_links/'+tok,{courseId:c.id, active:true, createdAt:new Date().toISOString(), createdBy:me().id||''});
+    toast('اتعمل رابط التسجيل ✔'); setTimeout(()=>makeQr(c.id),400); },
+  async linkOff(d){ const l=activeLink(d.id); if(!l) return; await dupd('signup_links/'+l.id,{active:false}); ui.qr=''; toast('اتقفل الرابط — محدش هيقدر يسجّل منه'); },
+  copyLink(d){ const u=linkUrl(d.id); if(!u) return; (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('اتنسخ الرابط ✔'),()=>toast(u)); },
+  suAccept(d){ const su=S.signups.find(x=>x.id===d.id); if(!su) return; const r=acceptSignups([su]); toast(r.existing?'اتقبلت — كانت مسجلة قبل كده واتضافت للدورة ✔':'اتقبلت واتضافت للطلاب والدورة ✔'); },
+  suReject(d){ const su=S.signups.find(x=>x.id===d.id); if(!su) return; dupd('signups/'+su.id,{status:'rejected', decidedAt:new Date().toISOString(), decidedBy:me().id||''}); toast('اترفض الطلب'); },
+  suAcceptAll(){ const list=pendingSignups(); if(!list.length) return; const r=acceptSignups(list); toast('اتقبل '+list.length+' طلب ✔'+(r.existing?(' ('+r.existing+' كانوا مسجلين قبل كده)'):'')); },
+  suShowAll(){ ui.suAll=!ui.suAll; render(); },
   nav(d){ ui.tab=d.t; ui.cid=null; ui.q=''; ui.selMode=false; ui.sel=new Set(); ui.modal=null; window.scrollTo(0,0); render(); },
   openCourse(d){ ui.tab='courses'; ui.cid=d.id; ui.ctab='quick'; ui.quick={}; ui.qinit=false; ui.q=''; ui.msel=new Set(); ui.mm=''; ui.ra=''; ui.mabs=false; ui.mses=null; ui.modal=null; window.scrollTo(0,0); render(); },
   openQuick(d){ A.openCourse(d); ui.quick={[d.s]:true}; ui.qinit=true; render(); },
@@ -406,6 +417,59 @@ const A = {
   }
 };
 function addToCourse(cid, ids){ const c=S.courses.find(x=>x.id===cid); if(!c||!ids.length) return; const have=new Set(c.studentIds||[]); const add=ids.filter(i=>!have.has(i)); dupd('courses/'+cid,{studentIds:[...(c.studentIds||[]),...add]}); toast(add.length?('اتضافت '+add.length+' للدورة ✔'):'كلهم موجودين في الدورة'); }
+
+/* ---------- self sign-up ---------- */
+// A course gets a public link (register/?t=CODE). New students fill the form there;
+// requests wait here until the team accepts (added to students + course) or rejects.
+const pendingSignups=()=>S.signups.filter(x=>x.status==='pending').sort((a,b)=>(a.submittedAt||'').localeCompare(b.submittedAt||''));
+const activeLink=cid=>S.links.find(l=>l.courseId===cid&&l.active);
+const linkUrl=cid=>{ const l=activeLink(cid); return l?new URL('../register/?t='+encodeURIComponent(l.id), location.href).href:''; };
+function newToken(){ const b=crypto.getRandomValues(new Uint8Array(24)); return btoa(String.fromCharCode(...b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function loadQrLib(){ if(window.QRCode) return Promise.resolve(); if(loadQrLib.p) return loadQrLib.p;
+  loadQrLib.p=new Promise((ok,no)=>{ const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload=ok; sc.onerror=no; document.head.appendChild(sc); }); return loadQrLib.p; }
+async function makeQr(cid){ const u=linkUrl(cid); if(!u){ ui.qr=''; render(); return; }
+  try{ await loadQrLib(); const box=document.createElement('div'); new QRCode(box,{text:u,width:480,height:480,colorDark:'#13261c',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+    const cv=box.querySelector('canvas'); ui.qr=cv?cv.toDataURL('image/png'):((box.querySelector('img')||{}).src||''); }catch(e){ ui.qr=''; }
+  if(ui.modal&&ui.modal.type==='signupLink'&&ui.modal.id===cid) render(); }
+function acceptSignups(list){
+  // one course update per course (avoids overwriting studentIds), reuse students with the same phone
+  let existing=0; const byCourse={}; const now=new Date().toISOString();
+  list.forEach((su,i)=>{
+    const wn=waNum(su.phone); const old=wn?S.students.find(st=>waNum(st.phone)===wn):null; let sid;
+    if(old){ sid=old.id; existing++; }
+    else { sid=uid('s')+i; const d={name:su.name||'',gender:su.gender==='m'?'m':'f',phone:su.phone||'',email:su.email||'',birthDate:su.birthDate||'',age:null,governorate:su.governorate||'',area:su.area||'',mode:'',source:su.source||'',job:su.job||'',education:su.education||'',notes:su.notes||'',createdAt:Date.now()+i};
+      dset('students/'+sid,d); S.students.push({id:sid,...d}); S.map[sid]=S.students[S.students.length-1]; }
+    (byCourse[su.courseId]||(byCourse[su.courseId]=[])).push(sid);
+    dupd('signups/'+su.id,{status:'accepted', studentId:sid, decidedAt:now, decidedBy:me().id||''});
+  });
+  Object.keys(byCourse).forEach(cid=>{ const c=S.courses.find(x=>x.id===cid); if(!c) return; const have=new Set(c.studentIds||[]); const add=byCourse[cid].filter(x=>!have.has(x)); if(add.length){ c.studentIds=[...(c.studentIds||[]),...add]; dupd('courses/'+cid,{studentIds:c.studentIds}); } });
+  return {existing};
+}
+function pendingCard(){ const n=pendingSignups().length; if(!n) return '';
+  return `<div class="card"><h2>📝 طلبات تسجيل جديدة</h2><div class="sub" style="margin-bottom:8px">${n} ${n===1?'طلب مستني':'طلبات مستنية'} مراجعة من الفريق.</div><button class="btn" data-act="modal" data-t="signups">مراجعة الطلبات</button></div>`; }
+function signupCard(){ const n=pendingSignups().length;
+  const rows=S.courses.map(c=>{ const on=!!activeLink(c.id); return `<div class="srow" style="cursor:default"><div class="info"><b>${esc(c.name)}</b><small>${on?'الرابط شغّال':'مفيش رابط'}</small></div><button class="btn ${on?'alt':''} sm" data-act="signupLink" data-id="${c.id}">${on?'🔗 الرابط':'إنشاء رابط'}</button></div>`; }).join('');
+  return `<div class="card"><h2>🔗 روابط التسجيل للطلاب الجداد</h2><div class="sub" style="margin-bottom:8px">لكل دورة رابط (وQR) تبعتيه للطلاب الجداد. كل اللي يسجّل يوصلك طلب، ويتضاف بعد ما توافقي.</div>${rows||'<div class="sub">اعملي دورة الأول.</div>'}<div class="acts"><button class="btn sm" data-act="modal" data-t="signups">📝 طلبات التسجيل${n?' ('+n+')':''}</button></div></div>`; }
+function linkModal(cid){ const c=S.courses.find(x=>x.id===cid)||{}; const u=linkUrl(cid);
+  if(!u) return `<div class="sub" style="margin-bottom:10px">دورة «${esc(c.name||'')}» مالهاش رابط تسجيل شغّال.</div><div class="acts"><button class="btn" data-act="linkCreate" data-id="${cid}">إنشاء رابط</button><button type="button" class="btn ghost" data-act="close">إغلاق</button></div>`;
+  const msg='السلام عليكم 🌿\nللتسجيل في '+(c.name||'الدورة')+' مع فريق حلم، املي البيانات من الرابط ده:\n'+u;
+  return `<div class="sub">دورة «${esc(c.name||'')}». ابعتي الرابط أو اطبعي الـ QR.</div>
+  ${ui.qr?`<div style="text-align:center;margin:12px 0"><img src="${ui.qr}" alt="QR للتسجيل في الدورة" style="width:220px;height:220px;border:1px solid var(--line);border-radius:14px;padding:8px;background:#fff"></div>`:'<div class="sub" style="margin:12px 0">جاري تجهيز الـ QR…</div>'}
+  <input class="inp" readonly dir="ltr" value="${esc(u)}" onclick="this.select()">
+  <div class="acts"><button class="btn" data-act="copyLink" data-id="${cid}">نسخ الرابط</button><a class="btn alt" href="${esc(waShare(msg))}" target="_blank" rel="noopener">💬 واتساب</a>${ui.qr?`<a class="btn alt" href="${ui.qr}" download="QR-تسجيل-${esc(c.name||'دورة')}.png">⬇️ تحميل الـ QR</a>`:''}</div>
+  <div class="acts"><button class="btn ghost sm" data-act="linkCreate" data-id="${cid}">رابط جديد (يقفل القديم)</button><button class="btn red sm" data-act="linkOff" data-id="${cid}">قفل الرابط</button><button type="button" class="btn ghost sm" data-act="close">إغلاق</button></div>`; }
+function signupsModal(){
+  const list=ui.suAll?[...S.signups].sort((a,b)=>(b.submittedAt||'').localeCompare(a.submittedAt||'')).slice(0,100):pendingSignups();
+  const cn=id=>(S.courses.find(c=>c.id===id)||{}).name||'دورة محذوفة';
+  const st={pending:'<span class="pill">مستني</span>',accepted:'<span class="pill p-ok">اتقبل</span>',rejected:'<span class="pill">اترفض</span>'};
+  const when=t=>{ if(!t) return ''; const d=new Date(t); return d.getDate()+'/'+(d.getMonth()+1)+' '+pad(d.getHours())+':'+pad(d.getMinutes()); };
+  const extra=su=>[su.governorate,su.area,su.job,su.source,su.birthDate,su.email].filter(Boolean).map(esc).join(' · ');
+  const rows=list.map(su=>{ const dup=su.status==='pending'&&waNum(su.phone)&&S.students.some(x=>waNum(x.phone)===waNum(su.phone));
+    return `<div class="card" style="padding:12px;margin-bottom:8px"><b>${esc(su.name)}</b> ${ui.suAll?(st[su.status]||''):''}<div class="sub"><span dir="ltr">${esc(su.phone)}</span> · ${su.gender==='m'?'ولد':'بنت'} · ${esc(cn(su.courseId))} · ${when(su.submittedAt)}</div>${extra(su)?`<div class="sub">${extra(su)}</div>`:''}${su.notes?`<div class="sub">ملاحظات: ${esc(su.notes)}</div>`:''}${dup?'<div class="sub" style="color:var(--g2)">⚠️ الرقم ده مسجّل عندك قبل كده — هيتضاف للدورة بنفس بياناته.</div>':''}
+    ${su.status==='pending'?`<div class="acts" style="margin-top:8px"><button class="btn sm" data-act="suAccept" data-id="${su.id}">✅ قبول</button><button class="btn ghost sm" data-act="suReject" data-id="${su.id}">رفض</button></div>`:''}</div>`; }).join('');
+  return `${rows||'<div class="sub" style="margin-bottom:10px">مفيش طلبات مستنية دلوقتي.</div>'}
+  <div class="acts">${!ui.suAll&&list.length>1?'<button class="btn" data-act="suAcceptAll">قبول الكل ('+list.length+')</button>':''}<button class="btn ghost sm" data-act="suShowAll">${ui.suAll?'الطلبات المستنية بس':'كل الطلبات (آخر 100)'}</button><button type="button" class="btn ghost" data-act="close">إغلاق</button></div>`;
+}
 
 // ---------- messaging ----------
 function openMsg(kind, ids, cid, tplName, extra){
@@ -742,6 +806,7 @@ function viewHome(){
   ${today.length?`<div class="card"><h2>📅 محاضرات النهاردة</h2>${today.map(x=>{const c=S.courses.find(z=>z.id===x.courseId);return c?`<div class="srow" data-act="openQuick" data-id="${c.id}" data-s="${x.id}"><span class="av">⚡</span><div class="info"><b>${esc(c.name)}</b><small>سجّل الحضور دلوقتي</small></div></div>`:'';}).join('')}</div>`:''}
   ${(()=>{ const per=todayStr().slice(0,7); const a=S.courses.reduce((o,c)=>{const m=money(c.id,per);return {i:o.i+m.income,e:o.e+m.exp};},{i:0,e:0}); return (a.i||a.e)?`<div class="card"><h2>💰 ${mLabel(per)}</h2><div class="money" style="margin:0"><div><b>${a.i}</b><span>محصّل</span></div><div><b>${a.e}</b><span>مصروفات</span></div><div class="${a.i-a.e<0?'neg':''}"><b>${a.i-a.e}</b><span>الصافي</span></div></div></div>`:''; })()}
   ${imp}
+  ${pendingCard()}
   <div class="card"><h2>⚡ اختصارات</h2><div class="acts" style="margin:0"><button class="btn" data-act="modal" data-t="student">+ طالب</button><button class="btn alt" data-act="modal" data-t="bulk">+ مجموعة طلاب</button><button class="btn alt" data-act="modal" data-t="course">+ دورة</button></div></div></div>`;
 }
 
@@ -895,6 +960,7 @@ function viewMore(){
   ${(()=>{ ui.lgN=log.length; ui.lg=Math.max(0,Math.min(ui.lg||0,log.length-1)); const m=log[ui.lg]; if(!m) return '<div class="card"><h2>✉️ سجل الرسائل</h2><div class="sub">هيتسجل هنا كل ما تفتحي واتساب أو إيميل من السيستم.</div></div>'; const ids=m.studentIds||(m.studentId?[m.studentId]:[]); const names=ids.map(i=>S.map[i]&&S.map[i].name).filter(Boolean); const cn=m.courseId&&S.courses.find(c=>c.id===m.courseId); return `<div class="card"><h2>✉️ سجل الرسائل <span class="pill p-ok">${ui.lg+1} / ${log.length}</span></h2><div class="lgbox"><button class="arr" data-act="lgn" data-v="-1" ${ui.lg<=0?'disabled':''}>›</button><div class="body"><b>${m.kind==='wa'?'💬 واتساب':'✉️ إيميل'}</b> • <small>${when(m.at)}${cn?' • '+esc(cn.name):''}</small>\n<small class="sub">إلى: ${esc(names.slice(0,6).join('، ')||'—')}${names.length>6?' +'+(names.length-6):''}</small>\n\n${esc(m.text||'')}</div><button class="arr" data-act="lgn" data-v="1" ${ui.lg>=log.length-1?'disabled':''}>‹</button></div><div class="sub" style="text-align:center;margin-top:6px">الأحدث أولاً — اضغطي ‹ للأقدم و› للأحدث</div></div>`; })()}
   <div class="card"><h2>🗄️ نسخة احتياطية</h2><div class="sub" style="margin-bottom:8px">بتنزّل ملف فيه كل البيانات (طلاب، دورات، حضور، فلوس، رسايل). اعمليها كل فترة.</div><button class="btn sm" data-act="backup">⬇️ نسخة احتياطية</button></div>
   <div class="card"><h2>✏️ الرسايل والشهادات</h2><div class="sub" style="margin-bottom:8px">عدّلي نصوص رسايل الواتساب الجاهزة ونص الشهادة.</div><button class="btn sm" data-act="editTpls">تعديل النصوص</button></div>
+  ${signupCard()}
   <div class="card"><h2>📝 تسجيل الطلاب الجداد</h2><div class="sub" style="margin-bottom:8px">أنشئ Google Form بالخانات دي، وبعدين انسخ صفوف الردود (مع صف العناوين) من شيت الردود والصقها في «+ مجموعة» — السيستم بيفهم العناوين ويضيف الكل.</div><textarea class="inp" id="formfields" readonly style="min-height:150px">${esc(form)}</textarea><div class="acts"><button class="btn alt sm" data-act="copyText" data-el="formfields">نسخ الخانات</button><button class="btn sm" data-act="modal" data-t="bulk">+ لصق ردود</button></div></div>
   <div class="card"><h2>👥 الحساب والفريق</h2><div class="sub" style="margin-bottom:8px">كل الفريق بنفس الصلاحيات. داخلة بحساب: <b>${esc(me().name||'')}</b>${isAdmin()?' — إضافة الأعضاء وإدارتهم من صفحة الحساب.':''}</div><div class="acts"><a class="btn sm" href="account.html">حسابي وكلمة المرور</a>${isAdmin()?'<a class="btn alt sm" href="account.html#users">إدارة المستخدمين</a>':''}<button class="btn alt sm" data-act="logout">🚪 تسجيل خروج</button></div></div></div></div>`;
 }
@@ -903,6 +969,8 @@ function viewModal(){
   const m=ui.modal; if(!m) return '';
   const wrap=(t,inner)=>`<div class="ov" data-act="close"><div class="modal"><div class="grab"></div><h2>${t}</h2>${inner}</div></div>`;
   const cancel='<button type="button" class="btn ghost" data-act="close">إلغاء</button>';
+  if(m.type==='signups') return wrap('📝 طلبات التسجيل', signupsModal());
+  if(m.type==='signupLink') return wrap('🔗 رابط التسجيل', linkModal(m.id));
   if(m.type==='course') return wrap('دورة جديدة',`<form onsubmit="event.preventDefault();submitCourse(this)"><label>اسم الدورة</label><input class="inp" name="name" placeholder="مثال: درس معلمة دارين"><div class="acts"><button class="btn">إنشاء</button>${cancel}</div></form>`);
   if(m.type==='student'){ const p=m.id?S.map[m.id]:{}; const opt=(arr,v,ph)=>`<option value="">${ph}</option>`+arr.map(x=>`<option ${v===x?'selected':''}>${x}</option>`).join('');
     return wrap(m.id?'تعديل بيانات':'طالب جديد',`<form onsubmit="event.preventDefault();submitStudent(this)"><label>الاسم</label><input class="inp" name="name" value="${esc(p.name||'')}" oninput="dupCheck(this.form)">
@@ -1123,7 +1191,7 @@ document.addEventListener('change',e=>{ const id=e.target.id, v=e.target.value;
   const sub=(name,key,flag)=>db.collection(name).onSnapshot(sn=>{ S[key]=sn.docs.map(d=>({id:d.id,...d.data()})); S.loaded[flag]=true; clearTimeout(timer); ui.stale=false; rebuild(); if(S.loaded.c&&S.loaded.s) migrate(); render(); },err=>{ console.error(err); ui.stale=true; render(); });
   sub('courses','courses','c'); sub('students','students','s'); sub('sessions','sessions','x');
   const sub2=(q,key)=>q.onSnapshot(sn=>{ S[key]=sn.docs.map(d=>({id:d.id,...d.data()})); render(); },err=>console.error(err));
-  S.usersLoaded=true; sub2(db.collection('settings'),'settings'); sub2(db.collection('payments'),'payments'); sub2(db.collection('expenses'),'expenses'); sub2(db.collection('groups'),'groups'); sub2(db.collection('messages').orderBy('at','desc').limit(300),'messages');
+  S.usersLoaded=true; sub2(db.collection('settings'),'settings'); sub2(db.collection('signups'),'signups'); sub2(db.collection('signup_links'),'links'); sub2(db.collection('payments'),'payments'); sub2(db.collection('expenses'),'expenses'); sub2(db.collection('groups'),'groups'); sub2(db.collection('messages').orderBy('at','desc').limit(300),'messages');
 })();
 </script>
 </body>

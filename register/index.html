@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#006838">
+<title>التسجيل في دورة — حلم</title>
+<link rel="icon" href="../icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared/helm.css">
+<style>
+.req{color:var(--danger)}
+.row2{display:grid;gap:0 var(--space-3);grid-template-columns:1fr}
+@media(min-width:520px){.row2{grid-template-columns:1fr 1fr}}
+.seg{display:flex;gap:var(--space-2)}
+.seg label{flex:1;display:flex;align-items:center;justify-content:center;gap:var(--space-2);border:2px solid var(--border-strong);border-radius:var(--radius-sm);min-height:48px;cursor:pointer;font-weight:600}
+.seg input{accent-color:var(--brand-forest);width:18px;height:18px}
+.seg label:has(input:checked){border-color:var(--brand-forest);background:var(--surface-sunken)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.done{text-align:center}
+.done svg{width:64px;height:64px;color:var(--brand-forest)}
+.course{background:var(--surface-sunken);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);margin-bottom:var(--space-4)}
+.course b{display:block;font-size:18px}
+</style>
+</head>
+<body>
+<header class="auth-hero">
+  <span class="blob b1"></span><span class="blob b2"></span>
+  <div class="logo-panel"><img src="../shared/logo.png" alt="حلم" width="110" height="52"></div>
+  <h1>التسجيل في دورة</h1>
+  <p>حلم.. نعمل لله</p>
+</header>
+<main class="auth-main" style="max-width:560px">
+  <section class="auth-card" id="card" aria-live="polite"><p class="sub">جارٍ التحميل…</p></section>
+  <p class="auth-foot">بياناتك تُستخدم للتواصل معك بخصوص الدورة فقط، ولا تُشارك مع أي جهة.</p>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="../shared/config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var card = document.getElementById('card');
+  var cfg = window.HELM_CONFIG || {};
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var GOVS = ['القاهرة','الجيزة','الإسكندرية','القليوبية','الشرقية','الدقهلية','الغربية','المنوفية','البحيرة','كفر الشيخ','دمياط','بورسعيد','الإسماعيلية','السويس','الفيوم','بني سويف','المنيا','أسيوط','سوهاج','قنا','الأقصر','أسوان','البحر الأحمر','مطروح','شمال سيناء','جنوب سيناء','الوادي الجديد','خارج مصر'];
+  var SOURCES = ['فيسبوك','إنستجرام','واتساب','صديقة/معرفة','يوتيوب','جوجل','أخرى'];
+  var ERR = {
+    link: 'رابط التسجيل غير صالح أو أُغلق. تواصل مع فريق حلم للحصول على رابط جديد.',
+    name: 'اكتب الاسم بالكامل.',
+    phone: 'رقم الموبايل غير صحيح. اكتبه بالأرقام فقط، مثل 01xxxxxxxxx.',
+    gender: 'اختر النوع.',
+    email: 'البريد الإلكتروني غير صحيح، أو اتركه فارغًا.',
+    busy: 'التسجيل مزدحم الآن. حاول مرة أخرى بعد قليل.'
+  };
+  var I = {
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
+    ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>'
+  };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function latin(s) { return String(s || '').replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); }).replace(/[۰-۹]/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'.indexOf(d); }); }
+  function err(text) { return '<div class="msg msg-error" role="alert">' + I.alert + '<div><b>خطأ:</b> ' + esc(text) + '</div></div>'; }
+  function opts(list) { return '<option value="">— اختر —</option>' + list.map(function (x) { return '<option>' + esc(x) + '</option>'; }).join(''); }
+
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_PUBLISHABLE_KEY || !/^[A-Za-z0-9_-]{20,64}$/.test(token)) {
+    card.innerHTML = '<h2>التسجيل</h2>' + err(ERR.link);
+    return;
+  }
+  // No sign-in here: this page can only call the two public sign-up functions.
+  var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_PUBLISHABLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'helm-register' }
+  });
+
+  function showForm(info) {
+    card.innerHTML =
+      '<div class="course"><span class="muted">الدورة</span><b>' + esc(info.course) + '</b>' + (info.teacher ? '<span class="muted">' + esc(info.teacher) + '</span>' : '') + '</div>' +
+      '<form id="f" novalidate>' +
+      '<div class="field"><label for="name">الاسم بالكامل <span class="req">*</span></label><input class="input" id="name" autocomplete="name" required maxlength="80"></div>' +
+      '<div class="field"><span style="font-weight:600;font-size:14px">النوع <span class="req">*</span></span><div class="seg" role="radiogroup" aria-label="النوع">' +
+        '<label><input type="radio" name="gender" value="f"> أنثى</label><label><input type="radio" name="gender" value="m"> ذكر</label></div></div>' +
+      '<div class="field"><label for="phone">رقم الموبايل (واتساب) <span class="req">*</span></label><input class="input" id="phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required maxlength="20" placeholder="01xxxxxxxxx"></div>' +
+      '<div class="row2">' +
+        '<div class="field"><label for="email">البريد الإلكتروني</label><input class="input" id="email" type="email" dir="ltr" autocomplete="email" maxlength="120"></div>' +
+        '<div class="field"><label for="birth">تاريخ الميلاد</label><input class="input" id="birth" type="date" min="1930-01-01" max="2025-12-31"></div>' +
+        '<div class="field"><label for="gov">المحافظة</label><select class="input" id="gov">' + opts(GOVS) + '</select></div>' +
+        '<div class="field"><label for="area">المنطقة</label><input class="input" id="area" maxlength="80"></div>' +
+        '<div class="field"><label for="source">كيف عرفت عنا؟</label><select class="input" id="source">' + opts(SOURCES) + '</select></div>' +
+        '<div class="field"><label for="job">الوظيفة / الدراسة</label><input class="input" id="job" maxlength="80"></div>' +
+      '</div>' +
+      '<div class="field"><label for="notes">ملاحظات</label><textarea class="input" id="notes" rows="2" maxlength="300"></textarea></div>' +
+      '<div class="hp" aria-hidden="true"><label for="website">اترك هذا فارغًا</label><input id="website" tabindex="-1" autocomplete="off"></div>' +
+      '<div id="msg"></div>' +
+      '<button class="btn btn-primary btn-block" type="submit" id="go">إرسال طلب التسجيل</button>' +
+      '<p class="muted" style="font-size:13px;margin:12px 0 0">الحقول المعلّمة بـ <span class="req">*</span> إلزامية. سيراجع فريق حلم طلبك ويتواصل معك.</p>' +
+      '</form>';
+    document.getElementById('name').focus();
+    document.getElementById('f').onsubmit = async function (e) {
+      e.preventDefault();
+      var box = document.getElementById('msg'), go = document.getElementById('go');
+      box.innerHTML = '';
+      if (document.getElementById('website').value) { done(); return; }     // bots fill hidden fields
+      var g = document.querySelector('input[name=gender]:checked');
+      var form = {
+        name: document.getElementById('name').value.trim(),
+        gender: g ? g.value : '',
+        phone: latin(document.getElementById('phone').value).replace(/[^\d+]/g, ''),
+        email: document.getElementById('email').value.trim(),
+        birthDate: document.getElementById('birth').value,
+        governorate: document.getElementById('gov').value,
+        area: document.getElementById('area').value.trim(),
+        source: document.getElementById('source').value,
+        job: document.getElementById('job').value.trim(),
+        notes: document.getElementById('notes').value.trim()
+      };
+      if (form.name.length < 3) { box.innerHTML = err(ERR.name); return; }
+      if (!form.gender) { box.innerHTML = err(ERR.gender); return; }
+      if (!/^\+?\d{8,15}$/.test(form.phone)) { box.innerHTML = err(ERR.phone); return; }
+      go.disabled = true; go.textContent = 'جارٍ الإرسال…';
+      try {
+        var r = await sb.rpc('attendance_signup_submit', { p_token: token, p_form: form });
+        if (r.error) throw r.error;
+        if (!r.data || !r.data.ok) { box.innerHTML = err(ERR[r.data && r.data.error] || 'تعذّر الإرسال. حاول مرة أخرى.'); go.disabled = false; go.textContent = 'إرسال طلب التسجيل'; return; }
+        done();
+      } catch (x) {
+        box.innerHTML = err('تعذّر الاتصال. تحقّق من الإنترنت ثم حاول مرة أخرى.');
+        go.disabled = false; go.textContent = 'إرسال طلب التسجيل';
+      }
+    };
+  }
+  function done() {
+    card.innerHTML = '<div class="done">' + I.ok + '<h2>تم استلام طلبك</h2><p class="sub">جزاك الله خيرًا. سيراجع فريق حلم طلبك ويتواصل معك على رقم الواتساب.</p></div>';
+  }
+
+  sb.rpc('attendance_signup_info', { p_token: token }).then(function (r) {
+    if (r.error || !r.data || !r.data.ok) { card.innerHTML = '<h2>التسجيل</h2>' + err(ERR.link); return; }
+    showForm(r.data);
+  }, function () { card.innerHTML = '<h2>التسجيل</h2>' + err('تعذّر الاتصال. تحقّق من الإنترنت ثم أعد تحميل الصفحة.'); });
+})();
+</script>
+</body>
+</html>

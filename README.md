@@ -26,6 +26,7 @@ shared/   config.js   رابط Supabase + المفتاح العام فقط / Sup
           helm-auth.js, login.js, account.js, helm-db.js   الدخول والبيانات / login + data
 attendance/   login.html, index.html, account.html
 cases/        login.html, index.html, account.html
+register/     صفحة تسجيل الطلاب الجداد (بدون حساب) / public sign-up page (no account)
 supabase/migrations/   ملفات قاعدة البيانات بالترتيب / database files, in order
 supabase/tests/        اختبار الأمان / security test
 supabase/functions/    admin-users, id-card (تعمل على خوادم Supabase / run on Supabase)
@@ -60,7 +61,8 @@ In **SQL Editor**, paste and run each file in order:
 3. `supabase/migrations/0003_attendance.sql`
 4. `supabase/migrations/0004_shared.sql`
 5. `supabase/migrations/0005_app_support.sql`
-6. `supabase/tests/rls_isolation_test.sql` ← **اختبار الأمان**: لازم كل الصفوف `pass = true`. لا يحفظ أي بيانات.
+6. `supabase/migrations/0006_attendance_signup.sql`
+7. `supabase/tests/rls_isolation_test.sql` و `supabase/tests/signup_test.sql` ← **اختبارات الأمان**: لازم كل الصفوف `pass = true`. لا تحفظ أي بيانات.
 
 ثم / Then:
 - **Authentication → Sign In / Providers → Allow new users to sign up = OFF** (التسجيل الذاتي مقفول).
@@ -135,7 +137,20 @@ The portal admin manages everyone. In attendance, all members have the same righ
 
 ---
 
-## ٨) نقل البيانات من Google Sheet / Import from Google Sheets
+## ٨) تسجيل الطلاب الجداد بأنفسهم / Student self sign-up
+
+1. نظام الحضور ← **المزيد** ← «روابط التسجيل للطلاب الجداد» ← بجانب الدورة **إنشاء رابط**.
+2. يظهر الرابط و**QR**: «نسخ الرابط» أو «واتساب» أو «تحميل الـ QR» للطباعة.
+3. الطالبة تفتح الرابط (بدون حساب)، تملأ بياناتها، وتضغط «إرسال».
+4. يظهر في الرئيسية «طلبات تسجيل جديدة» ← **مراجعة الطلبات** ← **قبول** (تُضاف للطلاب وللدورة) أو **رفض**.
+   لو رقمها مسجّل قبل كده، تُضاف للدورة ببياناتها القديمة بدون تكرار.
+5. لإيقاف التسجيل: **قفل الرابط**. «رابط جديد» يقفل القديم تلقائيًا.
+
+الأمان: الزائر لا يقرأ أي جدول؛ يقدر فقط يرسل طلبًا من رابط شغّال، والبيانات تُراجع وتُقصّ، وفي حد أقصى للطلبات (اختبار `signup_test.sql`).
+
+---
+
+## ٩) نقل البيانات من Google Sheet / Import from Google Sheets
 
 **الحضور:** نظام الحضور ← الطلاب ← استيراد ملف (Excel أو CSV). نزّلي القالب أولًا لتعرفي أسماء الأعمدة. من Google Sheets: File ← Download ← CSV.
 **الحالات:** تُضاف من داخل النظام (حالة جديدة).
@@ -143,7 +158,7 @@ The portal admin manages everyone. In attendance, all members have the same righ
 
 ---
 
-## ٩) التجربة على الجهاز / Run locally
+## ١٠) التجربة على الجهاز / Run locally
 
 ```bash
 node tools/serve.mjs . 8080
@@ -152,7 +167,7 @@ node tools/serve.mjs . 8080
 
 ---
 
-## ١٠) قائمة الأمان / Security checklist
+## ١١) قائمة الأمان / Security checklist
 
 - [x] RLS مفعّل على كل الجداول، والزائر غير المسجّل لا يرى شيئًا.
 - [x] التسجيل الذاتي مقفول؛ الحسابات ينشئها المسؤول فقط.
@@ -160,3 +175,4 @@ node tools/serve.mjs . 8080
 - [x] لا أسرار ولا بيانات حقيقية في المستودع.
 - [x] رابط جدول التبرعات مشفّر.
 - [x] كل نظام بدخول منفصل، ومن له صلاحية نظام واحد لا يرى شيئًا من الآخر (اختبار `rls_isolation_test.sql`).
+- [x] صفحة التسجيل العامة لا تصل لأي جدول؛ ترسل طلبات فقط من رابط شغّال (اختبار `signup_test.sql`).

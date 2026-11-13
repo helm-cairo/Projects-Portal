@@ -49,6 +49,14 @@
     function watchOf(coll) { return (views[coll] && views[coll].watch) || [tableOf(coll)]; }
     function keyOf(coll, table) { var k = views[coll] && views[coll].key; return (k && k[table]) || 'id'; }
 
+    // Open listeners per collection. After this browser saves something, every
+    // listener re-reads that record right away, so our own changes always show,
+    // even if a live-update message from the server arrives late or not at all.
+    var listeners = {};
+    function notify(coll, id) {
+      (listeners[coll] || []).forEach(function (fn) { fn(id); });
+    }
+
     function clean(coll, data) {
       var d = Object.assign({}, data);
       delete d.id;
@@ -69,14 +77,17 @@
         set: async function (obj) {
           var r = await sb.from(tableOf(coll)).upsert({ id: id, data: clean(coll, obj) });
           if (r.error) throw dbErr(r.error);
+          notify(coll, id);
         },
         update: async function (patch) {
           var r = await sb.rpc('helm_patch_doc', { p_table: tableOf(coll), p_id: id, p_patch: clean(coll, patch) });
           if (r.error) throw dbErr(r.error);
+          notify(coll, id);
         },
         delete: async function () {
           var r = await sb.from(tableOf(coll)).delete().eq('id', id);
           if (r.error) throw dbErr(r.error);
+          notify(coll, id);
         },
         onSnapshot: function (next, onErr) {
           var ch = sb.channel('d-' + coll + '-' + rid());
@@ -181,6 +192,11 @@
             if (!id) return;
             refetch(id).catch(function (e) { onErr && onErr(e); });
           }
+          function onLocalWrite(id) {
+            if (ready) refetch(id).catch(function (e) { onErr && onErr(e); });
+            else queue.push([null, { new: { id: id } }]);
+          }
+          (listeners[coll] = listeners[coll] || []).push(onLocalWrite);
           var ch = sb.channel('q-' + coll + '-' + rid());
           watchOf(coll).forEach(function (t) {
             ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, function (p) {
@@ -200,7 +216,11 @@
             ready = true;
             queue.splice(0).forEach(function (x) { handle(x[0], x[1]); });
           }, function (e) { onErr && onErr(e); });
-          return function () { stopped = true; sb.removeChannel(ch); };
+          return function () {
+            stopped = true;
+            listeners[coll] = (listeners[coll] || []).filter(function (fn) { return fn !== onLocalWrite; });
+            sb.removeChannel(ch);
+          };
         }
       };
     }
