@@ -1,5 +1,9 @@
 # بوابة حلم — Helm Portal
 
+**الرابط الرسمي / Main address:** https://helm-cairo-projects-portal.pages.dev (Cloudflare Pages)
+نسخة احتياطية / Backup: https://helm-cairo.github.io/Projects-Portal/ (GitHub Pages)
+أي تعديل يُرفع على GitHub يظهر على الرابطين تلقائيًا خلال دقيقة. / Every push to GitHub updates both within a minute.
+
 موقع واحد على GitHub Pages وقاعدة بيانات واحدة على Supabase لكل أنظمة فريق حلم.
 One static site (GitHub Pages) and one Supabase project for all of Helm's systems.
 
@@ -46,6 +50,8 @@ tools/serve.mjs        سيرفر للتجربة على الجهاز / local tes
    كل الروابط داخل الموقع نسبية، فتعمل تحت أي اسم للمستودع.
    All links are relative, so it works under any repo name.
 4. في Supabase: **Authentication → URL Configuration → Site URL** = رابط الموقع. (يفيد لاحقًا فقط؛ الدخول لا يعتمد على الإيميل.)
+
+**Cloudflare Pages (الرابط الرسمي):** Workers & Pages → Create → Pages → Connect to Git → `helm-cairo/Projects-Portal` → Framework: None، بدون Build command → Save and Deploy. بعدها كل رفع على `main` يُنشر تلقائيًا.
 
 **تثبيت على الموبايل / Install on the phone:** افتحي الرابط في Chrome (أندرويد) ← القائمة ⋮ ← «إضافة إلى الشاشة الرئيسية». في iPhone: Safari ← مشاركة ← «إضافة إلى الشاشة الرئيسية».
 

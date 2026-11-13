@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#006838">
+<title>الصفحة غير موجودة — حلم</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f3faf6;color:#13261c;font-family:"Cairo","Segoe UI",Tahoma,system-ui,sans-serif;text-align:center;padding:16px}
+.box{background:#fff;border:1px solid #d3e6db;border-radius:24px;padding:32px 24px;max-width:420px;width:100%}
+h1{font-size:22px;margin:16px 0 8px}
+p{color:#4a5d52;margin:0 0 20px}
+a{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 24px;border-radius:14px;background:#006838;color:#fff;text-decoration:none;font-weight:600}
+a:hover{background:#004d29}
+a:focus-visible{outline:2px solid #006838;outline-offset:3px}
+svg{width:56px;height:56px;color:#006838}
+</style>
+</head>
+<body>
+<main class="box">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 11h5"/></svg>
+  <h1>الصفحة غير موجودة</h1>
+  <p>ربما تغيّر الرابط أو كُتب بشكل غير صحيح.</p>
+  <a id="home" href="/">العودة إلى البوابة</a>
+</main>
+<script>
+  // Works both on Cloudflare (site at /) and GitHub Pages (site at /Projects-Portal/)
+  var m = location.pathname.match(/^\/Projects-Portal\//i);
+  document.getElementById('home').href = m ? '/Projects-Portal/' : '/';
+</script>
+</body>
+</html>
