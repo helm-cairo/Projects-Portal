@@ -37,6 +37,7 @@
     if (/banned|user_banned/i.test(m)) return '<b>خطأ:</b> هذا الحساب موقوف. يُرجى التواصل مع المسؤول.';
     if (/rate|too many|429/i.test(m)) return '<b>خطأ:</b> محاولات كثيرة. يُرجى الانتظار قليلًا ثم المحاولة مرة أخرى.';
     if (/fetch|network|failed to/i.test(m)) return '<b>خطأ:</b> تعذّر الاتصال. تحقّق من الإنترنت ثم حاول مرة أخرى.';
+    if (m === 'session_expired') return '<b>خطأ:</b> انتهت الجلسة. سجّل الدخول مرة أخرى بكلمة المرور الجديدة.';
     if (m === 'weak_password') return '<b>خطأ:</b> كلمة المرور ضعيفة. اتبع الشروط الموضحة.';
     if (m === 'secret_key_in_config') return '<b>خطأ في الإعداد:</b> الملف shared/config.js يحتوي على مفتاح سرّي. ضع المفتاح العام (publishable) فقط.';
     return '<b>خطأ:</b> حدث خطأ غير متوقع. حاول مرة أخرى.';

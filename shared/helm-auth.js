@@ -80,6 +80,8 @@
   }
 
   async function setPassword(sb, password) {
+    var cur = await sb.auth.getSession();
+    var email = cur.data.session && cur.data.session.user && cur.data.session.user.email;
     var r = await sb.functions.invoke('admin-users', { body: { action: 'set_password', password: password } });
     if (r.error) {
       var code = 'server_error';
@@ -87,7 +89,12 @@
       throw new Error(code);
     }
     if (!r.data || !r.data.ok) throw new Error((r.data && r.data.error) || 'server_error');
-    await sb.auth.refreshSession();
+    // Changing the password ends the old session on the server, so sign in again
+    // with the new password to get a fresh session.
+    try { await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+    if (!email) throw new Error('session_expired');
+    var again = await sb.auth.signInWithPassword({ email: email, password: password });
+    if (again.error) throw again.error;
     return true;
   }
 
