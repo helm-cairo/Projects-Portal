@@ -10,6 +10,6 @@
  * بالعربي: القيمتين دول آمنين يبقوا ظاهرين. ممنوع تمامًا تحطي هنا مفتاح service_role أو secret.
  */
 window.HELM_CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_PUBLISHABLE_KEY: ''
+  SUPABASE_URL: 'https://vrcesxggnuebrxrtfrpe.supabase.co',
+  SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_l0-dnLnFywqbxTytE-AglA_ST-wV755'
 };
