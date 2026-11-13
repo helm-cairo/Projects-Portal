@@ -701,6 +701,12 @@ input.filled-err,select.filled-err{border-color:#b42318!important;box-shadow:0 0
 .scanlist{margin:8px 0 0;padding-inline-start:18px;font-size:.88rem}
 .ocr pre{white-space:pre-wrap;font-size:.8rem;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px;max-height:220px;overflow:auto;direction:rtl}
 .viewer img{display:block;margin:0 auto;max-height:70vh;border-radius:8px}
+.idprev{margin:0}
+.idthumb{display:grid;place-items:center;width:100%;aspect-ratio:1.58;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);overflow:hidden;cursor:zoom-in}
+.idthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.idthumb img:not([src]){display:none}
+.idprev figcaption{font-size:.85rem;margin-top:6px;color:var(--muted)}
+.idprev figcaption a{color:var(--accent-strong);font-weight:600}
 .acct{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--accent-strong);font-weight:600;border:1px solid var(--line);border-radius:14px;padding:6px 12px;min-height:40px;background:var(--surface)}
 .acct:hover{border-color:var(--accent)}
 </style>
@@ -1134,7 +1140,8 @@ async function openCase(id){
   sheet(esc(c.idName || 'حالة') + (c.nickname ? ' <span class="muted" style="font-weight:500">('+esc(c.nickname)+')</span>' : ''), body, foot);
   $('#chgStatus')?.addEventListener('click', () => statusDialog(id));
   $('#casePdf')?.addEventListener('click', () => pdfCase(id));
-  $$('[data-idimg]').forEach(b => b.addEventListener('click', () => showIdImage(b.dataset.idimg, b.dataset.label)));
+  $('[data-idimg]').forEach(b => b.addEventListener('click', () => showIdImage(b.dataset.idimg, b.dataset.label)));
+  loadIdPreviews(document);
   if(S.canWrite){
     $('#editCase').addEventListener('click', () => openForm(id));
     $('#delCase')?.addEventListener('click', async () => {
@@ -1242,7 +1249,7 @@ function statusDialog(id, preset){
     const stDoc = {category:to, by:S.uid, at:nowISO, date, reason, history:hist, code: code || null};
     $('#stSave', el).disabled = true;
     const ok = await guard(() => S.db.doc('status/'+id).set(stDoc), (!keep && code) ? 'تم الحفظ، وكود الحالة: ' + code : 'تم حفظ الاستحقاق');
-    if(ok){ S.status.set(id, stDoc); mergeStatus(id); close(); if(S.open?.mode==='view' && S.open.id===id) openCase(id); renderAll(); }
+    if(ok){ S.status.set(id, stDoc); mergeStatus(id); if(!keep && code) renameDrive(id); close(); if(S.open?.mode==='view' && S.open.id===id) openCase(id); renderAll(); }
     else $('#stSave', el).disabled = false;
   });
 }
@@ -1428,7 +1435,9 @@ function openForm(id){
     $('#saveCase').disabled = true;
     const ok = await guard(() => S.db.doc('cases/'+docId).set(data), id ? 'تم حفظ التعديلات' : 'تم تسجيل الحالة');
     $('#saveCase') && ($('#saveCase').disabled = false);
-    if(ok){ S.cases.set(docId, {id:docId, ...data}); mergeStatus(docId); openCase(docId); renderAll(); }
+    if(ok){ S.cases.set(docId, {id:docId, ...data}); mergeStatus(docId); openCase(docId); renderAll();
+      const replaced = [c.idFrontFileId !== data.idFrontFileId ? c.idFrontFileId : null, c.idBackFileId !== data.idBackFileId ? c.idBackFileId : null];
+      if(data.idFrontFileId || data.idBackFileId || replaced.some(Boolean)) renameDrive(docId, replaced); }
   });
 }
 
@@ -1837,9 +1846,31 @@ function idScanCard(c){
 }
 function idViewCard(c){
   const has = c.idFrontFileId || c.idBackFileId;
+  const drive = S.role === 'admin' || S.role === 'approver';
+  const side = (fid, label) => fid ? '<figure class="idprev"><button type="button" class="idthumb" data-idimg="'+esc(fid)+'" data-label="'+label+'" aria-label="عرض '+label+' بحجم كبير"><img data-idprev="'+esc(fid)+'" alt="'+label+'"><span class="muted">جارٍ التحميل…</span></button>'
+    + '<figcaption>'+label+(drive ? ' · <a href="https://drive.google.com/file/d/'+encodeURIComponent(fid)+'/view" target="_blank" rel="noopener">فتح في Google Drive</a>' : '')+'</figcaption></figure>' : '';
   return `<div class="card"><h3>صورة البطاقة الشخصية</h3>${has
-    ? '<div class="inline">' + (c.idFrontFileId ? '<button class="btn sm" type="button" data-idimg="'+esc(c.idFrontFileId)+'" data-label="وجه البطاقة">عرض وجه البطاقة</button>' : '') + (c.idBackFileId ? '<button class="btn sm" type="button" data-idimg="'+esc(c.idBackFileId)+'" data-label="ظهر البطاقة">عرض ظهر البطاقة</button>' : '') + '</div>' + (c.idScannedAt ? '<p class="muted" style="font-size:.8rem;margin:8px 0 0">تاريخ الحفظ: '+esc(dateLabel(c.idScannedAt))+(c.idExpiry ? ' · البطاقة سارية حتى '+esc(c.idExpiry) : '')+'</p>' : '')
+    ? '<div class="idgrid">' + side(c.idFrontFileId, 'وجه البطاقة') + side(c.idBackFileId, 'ظهر البطاقة') + '</div>' + (c.idScannedAt ? '<p class="muted" style="font-size:.8rem;margin:8px 0 0">تاريخ الحفظ: '+esc(dateLabel(c.idScannedAt))+(c.idExpiry ? ' · البطاقة سارية حتى '+esc(c.idExpiry) : '')+'</p>' : '')
+      + (drive ? '<p class="muted" style="font-size:.8rem;margin:6px 0 0">رابط Drive يفتح فقط لحساب Google الذي له صلاحية على فولدر صور البطاقات.</p>' : '')
     : '<p class="muted" style="margin:0">لا توجد صورة بطاقة محفوظة.'+(S.canWrite ? ' يمكن إضافتها من "تعديل البيانات".' : '')+'</p>'}</div>`;
+}
+// small previews, loaded through the secure function (cached for this visit)
+const idPrevCache = new Map();
+function loadIdPreviews(root){
+  $$('img[data-idprev]', root).forEach(async img => {
+    const fid = img.dataset.idprev, note = img.nextElementSibling;
+    try {
+      if(!idPrevCache.has(fid)) idPrevCache.set(fid, callIdFn({action:'get', fileId:fid}).then(r => 'data:' + (r.mime || 'image/jpeg') + ';base64,' + r.data));
+      img.src = await idPrevCache.get(fid);
+      if(note) note.remove();
+    } catch(e){ idPrevCache.delete(fid); if(note) note.textContent = idErrText(e && e.code); }
+  });
+}
+// rename the case's Drive folder + photos to "code - name - Front/Back"; trash replaced photos
+function renameDrive(caseId, trash){
+  const c = S.cases.get(caseId); if(!c || !sb) return;
+  if(!c.idFrontFileId && !c.idBackFileId && !(trash || []).length) return;
+  callIdFn({action:'rename', caseId, code: codeOf(c) || '', name: c.idName || '', trash: (trash || []).filter(Boolean)}).catch(e => console.warn('drive rename', e));
 }
 async function callIdFn(body){
   if(!sb) throw {code:'not_configured'};
@@ -1997,7 +2028,7 @@ function wireIdScan(c, docId, nidInfo){
     try {
       render('جارٍ رفع ' + label(side) + ' وقراءتها تلقائيًا… قد يستغرق ذلك ثوانٍ قليلة.');
       const data = await imageToJpegBase64(file);
-      const res = await callIdFn({action:'upload', caseId:docId, side, mime:'image/jpeg', data});
+      const res = await callIdFn({action:'upload', caseId:docId, side, mime:'image/jpeg', data, code: codeOf(c) || '', name: (($('#f_idName') || {}).value || c.idName || '').trim()});
       if(state.pending[side] === file) state.pending[side] = null;
       state.ids[side] = res.fileId; state.changed = true; state.scannedAt = new Date().toISOString();
       state.texts[side] = res.text || '';

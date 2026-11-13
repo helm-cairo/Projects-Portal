@@ -103,6 +103,11 @@ function aiProvider(): { name: string; run: (b64: string, mime: string) => Promi
   return null;
 }
 
+// Short, plain text for file/folder names (no path characters or control chars).
+function cleanText(v: unknown, max: number) {
+  return String(v ?? "").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
 async function callScript(url: string, secret: string, payload: Record<string, unknown>) {
   try {
     const res = await fetch(url, {
@@ -158,7 +163,11 @@ Deno.serve(async (req) => {
     const data = String(body.data ?? "");
     if (!data || data.length > 11_000_000) return json({ ok: false, error: "bad_image" }, 400);
     const mime = /^image\/(jpeg|png|webp)$/.test(String(body.mime)) ? String(body.mime) : "image/jpeg";
-    const payload = { action: "upload", caseId, side: body.side === "back" ? "back" : "front", mime, data };
+    const side = body.side === "back" ? "back" : "front";
+    const payload = {
+      action: "upload", caseId, side, mime, data,
+      code: cleanText(body.code, 30), name: cleanText(body.name, 80),
+    };
     const ai = aiProvider();
     const [out, aiRes] = await Promise.all([
       callScript(scriptUrl, scriptSecret, payload),
@@ -169,6 +178,31 @@ Deno.serve(async (req) => {
       if ("fields" in aiRes) out.fields = aiRes.fields;
       else { out.aiError = "ai_failed"; console.error("AI extraction failed:", aiRes.error); }
     }
+    return json(out, out.ok ? 200 : 502);
+  }
+
+  if (body.action === "rename") {
+    // Rename a case's Drive folder and ID photos to "code - name - Front/Back".
+    if (!["admin", "approver", "researcher"].includes(String(role))) return json({ ok: false, error: "forbidden" }, 403);
+    const caseId = String(body.caseId ?? "").replace(/[^\w-]/g, "").slice(0, 60);
+    if (!caseId) return json({ ok: false, error: "bad_case" }, 400);
+    const { data: canSee } = await asUser.rpc("cases_can_see", { p_case_id: caseId });
+    if (!canSee) return json({ ok: false, error: "forbidden" }, 403);
+    // File ids come from the database (as the caller), never from the browser.
+    const { data: priv } = await asUser.from("cases_private")
+      .select("id_front_file_id, id_back_file_id").eq("case_id", caseId).maybeSingle();
+    const files: { id: string; side: string }[] = [];
+    if (priv?.id_front_file_id) files.push({ id: priv.id_front_file_id, side: "front" });
+    if (priv?.id_back_file_id) files.push({ id: priv.id_back_file_id, side: "back" });
+    // Photos that were replaced in the last save. Apps Script trashes them only if they
+    // sit in THIS case's Drive folder and are not the case's current photos.
+    const current = new Set(files.map((f) => f.id));
+    const trash = (Array.isArray(body.trash) ? body.trash : [])
+      .map((x: unknown) => String(x)).filter((x: string) => /^[\w-]{10,}$/.test(x) && !current.has(x)).slice(0, 4);
+    if (!files.length && !trash.length) return json({ ok: true, renamed: 0 });
+    const out = await callScript(scriptUrl, scriptSecret, {
+      action: "rename", caseId, files, trash, code: cleanText(body.code, 30), name: cleanText(body.name, 80),
+    });
     return json(out, out.ok ? 200 : 502);
   }
 

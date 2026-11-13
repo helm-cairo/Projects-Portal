@@ -1,21 +1,26 @@
 /**
- * سجل حالات فريق حلم — حفظ صور البطايق على Google Drive وقراءتها (OCR)
+ * سجل حالات فريق حلم — حفظ صور البطاقات على Google Drive وقراءتها (OCR)
  *
  * خطوات الإعداد (مرة واحدة):
- * 1) من القائمة الجانبية: Services (+) → أضيفي "Drive API".
- * 2) اختاري الدالة setup من القائمة فوق ودوسي Run، ووافقي على الصلاحيات.
- *    هتعمل فولدر "صور البطايق - سجل حلم" في الـ Drive، وتطبع في الـ Execution log
- *    كلمة السر (SECRET) — انسخيها لـ Supabase.
- * 3) Deploy → New deployment → Web app
- *      Execute as: Me
- *      Who has access: Anyone
+ * 1) فعّلي "Drive API" (Services + أو appsscript.json).
+ * 2) شغّلي الدالة setup ووافقي على الصلاحيات. تُنشئ فولدر "صور البطايق - سجل حلم"
+ *    وتطبع في الـ Execution log كلمة السر (SECRET) — انسخيها لـ Supabase.
+ * 3) Deploy → New deployment → Web app (Execute as: Me، Who has access: Anyone)
  *    وانسخي رابط الـ Web app لـ Supabase.
+ *    عند تعديل الكود لاحقًا: Deploy → Manage deployments → ✏️ → Version: New version → Deploy
+ *    (الرابط يفضل كما هو).
  *
- * الصور بتتحفظ في فولدر فرعي لكل حالة، والملفات خاصة بحسابك.
- * محدش يقدر يرفع أو يفتح صورة من غير كلمة السر، وكلمة السر محفوظة في Supabase بس.
+ * أسماء الملفات:   "كود الحالة - اسم الحالة - Front" و "... - Back"
+ *   قبل اعتماد الحالة لا يوجد كود، فيُكتب "بدون كود"، ثم تُعاد التسمية تلقائيًا
+ *   عند صدور الكود أو تعديل الاسم (من النظام عبر action "rename").
+ * لكل حالة فولدر بنفس الاسم "كود الحالة - اسم الحالة". رقم الحالة الداخلي محفوظ
+ * في وصف الفولدر وفي إعدادات السكريبت، فإعادة التسمية لا تكسر أي شيء.
+ *
+ * لا أحد يقدر يرفع أو يفتح أو يعيد تسمية صورة من غير كلمة السر، وكلمة السر في Supabase فقط.
  */
 
 const FOLDER_NAME = 'صور البطايق - سجل حلم';
+const NO_CODE = 'بدون كود';
 
 function setup() {
   const props = PropertiesService.getScriptProperties();
@@ -30,9 +35,8 @@ function setup() {
     secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
     props.setProperty('SECRET', secret);
   }
-  // تجربة الـ OCR عشان جوجل يطلب كل الصلاحيات المطلوبة مرة واحدة
   const test = Utilities.newBlob(Utilities.base64Decode(TEST_PNG), 'image/png', 'test.png');
-  try { ocr_(test); } catch (e) { Logger.log('تنبيه: تجربة الـ OCR ما نجحتش — اتأكدي إنك ضفتي Drive API من Services: ' + e); }
+  try { ocr_(test); } catch (e) { Logger.log('تنبيه: تجربة الـ OCR ما نجحتش — اتأكدي من تفعيل Drive API: ' + e); }
   Logger.log('FOLDER: https://drive.google.com/drive/folders/' + folderId);
   Logger.log('SECRET (انسخيها لـ Supabase باسم APPS_SCRIPT_SECRET): ' + secret);
 }
@@ -46,6 +50,7 @@ function doPost(e) {
     const folder = DriveApp.getFolderById(props.getProperty('FOLDER_ID'));
     if (body.action === 'upload') return out_(upload_(folder, body));
     if (body.action === 'get') return out_(getImage_(folder, String(body.fileId || '')));
+    if (body.action === 'rename') return out_(rename_(folder, body));
     if (body.action === 'ping') return out_({ ok: true });
     return out_({ ok: false, error: 'unknown_action' });
   } catch (err) {
@@ -57,6 +62,38 @@ function doGet() {
   return out_({ ok: true, service: 'helm-id-cards' });
 }
 
+// ---------- names ----------
+function clean_(s, max) {
+  return String(s || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max || 80);
+}
+function baseName_(code, name) {
+  return (clean_(code, 30) || NO_CODE) + ' - ' + (clean_(name, 80) || 'بدون اسم');
+}
+function fileName_(code, name, side, ext) {
+  return baseName_(code, name) + ' - ' + (side === 'back' ? 'Back' : 'Front') + (ext ? '.' + ext : '');
+}
+
+// ---------- one folder per case (found by the case id, whatever its name) ----------
+function caseFolder_(folder, caseId, code, name, create) {
+  const props = PropertiesService.getScriptProperties();
+  const key = 'case_' + caseId;
+  const id = props.getProperty(key);
+  if (id) {
+    try {
+      const f = DriveApp.getFolderById(id);
+      if (!f.isTrashed()) return f;
+    } catch (e) { /* folder deleted: fall through */ }
+  }
+  // older uploads used the case id as the folder name
+  const old = folder.getFoldersByName(caseId);
+  if (old.hasNext()) { const f = old.next(); props.setProperty(key, f.getId()); f.setDescription(caseId); return f; }
+  if (!create) return null;
+  const f = folder.createFolder(baseName_(code, name));
+  f.setDescription(caseId);
+  props.setProperty(key, f.getId());
+  return f;
+}
+
 function upload_(folder, b) {
   const caseId = String(b.caseId || '').replace(/[^\w-]/g, '').slice(0, 60) || 'case';
   const side = b.side === 'back' ? 'back' : 'front';
@@ -64,14 +101,49 @@ function upload_(folder, b) {
   const bytes = Utilities.base64Decode(String(b.data || ''));
   if (!bytes.length) return { ok: false, error: 'empty' };
   if (bytes.length > 8 * 1024 * 1024) return { ok: false, error: 'too_large' };
-  const stamp = Utilities.formatDate(new Date(), 'Africa/Cairo', 'yyyyMMdd-HHmmss');
   const ext = mime.split('/')[1].replace('jpeg', 'jpg');
-  const blob = Utilities.newBlob(bytes, mime, caseId + '_' + (side === 'front' ? 'وش' : 'ضهر') + '_' + stamp + '.' + ext);
-  const file = subFolder_(folder, caseId).createFile(blob);
+  const blob = Utilities.newBlob(bytes, mime, fileName_(b.code, b.name, side, ext));
+  const dir = caseFolder_(folder, caseId, b.code, b.name, true);
+  const file = dir.createFile(blob);
   let text = '';
   let ocrError = '';
   try { text = ocr_(blob); } catch (err) { ocrError = String(err && err.message || err); }
+  // (a replaced photo is trashed later, by "rename", once the case is saved)
   return { ok: true, fileId: file.getId(), text: text, ocrError: ocrError };
+}
+
+function rename_(folder, b) {
+  const caseId = String(b.caseId || '').replace(/[^\w-]/g, '').slice(0, 60);
+  if (!caseId) return { ok: false, error: 'bad_case' };
+  const files = Array.isArray(b.files) ? b.files.slice(0, 4) : [];
+  let renamed = 0;
+  files.forEach(function (x) {
+    const id = String(x && x.id || '');
+    if (!/^[\w-]{10,}$/.test(id)) return;
+    try {
+      const f = DriveApp.getFileById(id);
+      if (!insideFolder_(f, folder)) return;
+      const m = f.getName().match(/\.(jpe?g|png|webp)$/i);
+      f.setName(fileName_(b.code, b.name, x.side === 'back' ? 'back' : 'front', m ? m[1].toLowerCase() : 'jpg'));
+      renamed++;
+    } catch (e) {}
+  });
+  const dir = caseFolder_(folder, caseId, b.code, b.name, false);
+  if (dir) dir.setName(baseName_(b.code, b.name));
+  // photos replaced in the last save: to the Drive trash (recoverable for 30 days),
+  // but only if they are in THIS case's folder and not one of its current photos
+  let trashed = 0;
+  const keep = files.map(function (x) { return String(x && x.id || ''); });
+  (Array.isArray(b.trash) ? b.trash.slice(0, 4) : []).forEach(function (id) {
+    id = String(id || '');
+    if (!dir || !/^[\w-]{10,}$/.test(id) || keep.indexOf(id) >= 0) return;
+    try {
+      const f = DriveApp.getFileById(id);
+      const ps = f.getParents();
+      while (ps.hasNext()) { if (ps.next().getId() === dir.getId()) { f.setTrashed(true); trashed++; break; } }
+    } catch (e) {}
+  });
+  return { ok: true, renamed: renamed, trashed: trashed };
 }
 
 function getImage_(folder, fileId) {
@@ -94,11 +166,6 @@ function ocr_(blob) {
   } finally {
     try { Drive.Files.remove(id); } catch (e) { try { DriveApp.getFileById(id).setTrashed(true); } catch (e2) {} }
   }
-}
-
-function subFolder_(folder, name) {
-  const it = folder.getFoldersByName(name);
-  return it.hasNext() ? it.next() : folder.createFolder(name);
 }
 
 function insideFolder_(file, folder) {
