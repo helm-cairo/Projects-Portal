@@ -53,7 +53,12 @@
     phone: 'رقم الموبايل غير صحيح. اكتبه بالأرقام فقط، مثل 01xxxxxxxxx.',
     gender: 'اختر النوع.',
     email: 'البريد الإلكتروني غير صحيح، أو اتركه فارغًا.',
-    busy: 'التسجيل مزدحم الآن. حاول مرة أخرى بعد قليل.'
+    busy: 'التسجيل مزدحم الآن. حاول مرة أخرى بعد قليل.',
+    birth: 'اكتب تاريخ الميلاد.',
+    governorate: 'اختر المحافظة.',
+    area: 'اكتب المنطقة.',
+    source: 'اختر كيف عرفت عنا.',
+    mode: 'اختر طريقة الحضور.'
   };
   var I = {
     alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>',
@@ -80,13 +85,15 @@
       '<div class="field"><label for="name">الاسم بالكامل <span class="req">*</span></label><input class="input" id="name" autocomplete="name" required maxlength="80"></div>' +
       '<div class="field"><span style="font-weight:600;font-size:14px">النوع <span class="req">*</span></span><div class="seg" role="radiogroup" aria-label="النوع">' +
         '<label><input type="radio" name="gender" value="f"> أنثى</label><label><input type="radio" name="gender" value="m"> ذكر</label></div></div>' +
+      '<div class="field"><span style="font-weight:600;font-size:14px">طريقة الحضور <span class="req">*</span></span><div class="seg" role="radiogroup" aria-label="طريقة الحضور">' +
+        '<label><input type="radio" name="mode" value="offline"> حضوري</label><label><input type="radio" name="mode" value="online"> أونلاين</label><label><input type="radio" name="mode" value="hybrid"> هايبرد</label></div></div>' +
       '<div class="field"><label for="phone">رقم الموبايل (واتساب) <span class="req">*</span></label><input class="input" id="phone" type="tel" inputmode="tel" dir="ltr" autocomplete="tel" required maxlength="20" placeholder="01xxxxxxxxx"></div>' +
       '<div class="row2">' +
         '<div class="field"><label for="email">البريد الإلكتروني</label><input class="input" id="email" type="email" dir="ltr" autocomplete="email" maxlength="120"></div>' +
-        '<div class="field"><label for="birth">تاريخ الميلاد</label><input class="input" id="birth" type="date" min="1930-01-01" max="2025-12-31"></div>' +
-        '<div class="field"><label for="gov">المحافظة</label><select class="input" id="gov">' + opts(GOVS) + '</select></div>' +
-        '<div class="field"><label for="area">المنطقة</label><input class="input" id="area" maxlength="80"></div>' +
-        '<div class="field"><label for="source">كيف عرفت عنا؟</label><select class="input" id="source">' + opts(SOURCES) + '</select></div>' +
+        '<div class="field"><label for="birth">تاريخ الميلاد <span class="req">*</span></label><input class="input" id="birth" type="date" min="1930-01-01" max="' + new Date().toISOString().slice(0, 10) + '" required></div>' +
+        '<div class="field"><label for="gov">المحافظة <span class="req">*</span></label><select class="input" id="gov" required>' + opts(GOVS) + '</select></div>' +
+        '<div class="field"><label for="area">المنطقة <span class="req">*</span></label><input class="input" id="area" maxlength="80" required></div>' +
+        '<div class="field"><label for="source">كيف عرفت عنا؟ <span class="req">*</span></label><select class="input" id="source" required>' + opts(SOURCES) + '</select></div>' +
         '<div class="field"><label for="job">الوظيفة / الدراسة</label><input class="input" id="job" maxlength="80"></div>' +
       '</div>' +
       '<div class="field"><label for="notes">ملاحظات</label><textarea class="input" id="notes" rows="2" maxlength="300"></textarea></div>' +
@@ -102,6 +109,7 @@
       box.innerHTML = '';
       if (document.getElementById('website').value) { done(); return; }     // bots fill hidden fields
       var g = document.querySelector('input[name=gender]:checked');
+      var md = document.querySelector('input[name=mode]:checked');
       var form = {
         name: document.getElementById('name').value.trim(),
         gender: g ? g.value : '',
@@ -111,12 +119,18 @@
         governorate: document.getElementById('gov').value,
         area: document.getElementById('area').value.trim(),
         source: document.getElementById('source').value,
+        mode: md ? md.value : '',
         job: document.getElementById('job').value.trim(),
         notes: document.getElementById('notes').value.trim()
       };
       if (form.name.length < 3) { box.innerHTML = err(ERR.name); return; }
       if (!form.gender) { box.innerHTML = err(ERR.gender); return; }
+      if (!form.mode) { box.innerHTML = err(ERR.mode); return; }
       if (!/^\+?\d{8,15}$/.test(form.phone)) { box.innerHTML = err(ERR.phone); return; }
+      if (!form.birthDate) { box.innerHTML = err(ERR.birth); return; }
+      if (!form.governorate) { box.innerHTML = err(ERR.governorate); return; }
+      if (!form.area) { box.innerHTML = err(ERR.area); return; }
+      if (!form.source) { box.innerHTML = err(ERR.source); return; }
       go.disabled = true; go.textContent = 'جارٍ الإرسال…';
       try {
         var r = await sb.rpc('attendance_signup_submit', { p_token: token, p_form: form });

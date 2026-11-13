@@ -68,7 +68,8 @@ In **SQL Editor**, paste and run each file in order:
 4. `supabase/migrations/0004_shared.sql`
 5. `supabase/migrations/0005_app_support.sql`
 6. `supabase/migrations/0006_attendance_signup.sql`
-7. `supabase/tests/rls_isolation_test.sql` و `supabase/tests/signup_test.sql` ← **اختبارات الأمان**: لازم كل الصفوف `pass = true`. لا تحفظ أي بيانات.
+7. `supabase/migrations/0007_signup_required_fields.sql`
+8. `supabase/tests/rls_isolation_test.sql` و `supabase/tests/signup_test.sql` ← **اختبارات الأمان**: لازم كل الصفوف `pass = true`. لا تحفظ أي بيانات.
 
 ثم / Then:
 - **Authentication → Sign In / Providers → Allow new users to sign up = OFF** (التسجيل الذاتي مقفول).
@@ -148,7 +149,8 @@ The portal admin manages everyone. In attendance, all members have the same righ
 1. نظام الحضور ← **المزيد** ← «روابط التسجيل للطلاب الجداد» ← بجانب الدورة **إنشاء رابط**.
 2. يظهر الرابط و**QR**: «نسخ الرابط» أو «واتساب» أو «تحميل الـ QR» للطباعة.
 3. الطالبة تفتح الرابط (بدون حساب)، تملأ بياناتها، وتضغط «إرسال».
-4. يظهر في الرئيسية «طلبات تسجيل جديدة» ← **مراجعة الطلبات** ← **قبول** (تُضاف للطلاب وللدورة) أو **رفض**.
+   إلزامي: الاسم، النوع، الموبايل، **طريقة الحضور** (حضوري / أونلاين / هايبرد)، تاريخ الميلاد، المحافظة، المنطقة، كيف عرفت عنا.
+4. في الرئيسية بطاقة «طلبات التسجيل» (تظهر دائمًا، وبجانبها العدد لو فيه طلبات) ← **مراجعة الطلبات** ← **قبول** (تُضاف للطلاب وللدورة، ويُضبط نظام حضورها في الدورة تلقائيًا) أو **رفض**.
    لو رقمها مسجّل قبل كده، تُضاف للدورة ببياناتها القديمة بدون تكرار.
 5. لإيقاف التسجيل: **قفل الرابط**. «رابط جديد» يقفل القديم تلقائيًا.
 

@@ -42,14 +42,26 @@ begin
     r := public.attendance_signup_info('nonexistent-token-1234567890');
     res := res || jsonb_build_object('test', 'anon: unknown link is refused', 'expected', 'ok=false', 'actual', r::text, 'pass', not (r->>'ok')::boolean);
 
-    r := public.attendance_signup_submit(tok, '{"name":"Test Student","phone":"01000000001","gender":"f","job":"x","studentIds":["hack"],"status":"accepted"}');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student","phone":"01000000001","gender":"f","job":"x","birthDate":"2000-01-01","governorate":"Cairo","area":"Test area","source":"Facebook","mode":"online","studentIds":["hack"],"status":"accepted"}');
     res := res || jsonb_build_object('test', 'anon: valid sign-up accepted', 'expected', 'ok=true', 'actual', r::text, 'pass', (r->>'ok')::boolean);
-    r := public.attendance_signup_submit(tok, '{"name":"Test Student","phone":"01000000001","gender":"f"}');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student","phone":"01000000001","gender":"f","birthDate":"2000-01-01","governorate":"Cairo","area":"Test area","source":"Facebook","mode":"online"}');
     res := res || jsonb_build_object('test', 'anon: same phone twice is not duplicated', 'expected', 'ok=true (no new row)', 'actual', r::text, 'pass', (r->>'ok')::boolean);
     r := public.attendance_signup_submit(tok_off, '{"name":"Test Student","phone":"01000000002","gender":"f"}');
     res := res || jsonb_build_object('test', 'anon: cannot sign up through a switched-off link', 'expected', 'error=link', 'actual', r::text, 'pass', r->>'error' = 'link');
     r := public.attendance_signup_submit(tok, '{"name":"Te","phone":"abc","gender":"f"}');
     res := res || jsonb_build_object('test', 'anon: bad data refused', 'expected', 'ok=false', 'actual', r::text, 'pass', not (r->>'ok')::boolean);
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","birthDate":"2000-01-01","governorate":"Cairo","area":"x","source":"Facebook"}');
+    res := res || jsonb_build_object('test', 'anon: missing attendance mode refused', 'expected', 'error=mode', 'actual', r::text, 'pass', r->>'error' = 'mode');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","governorate":"Cairo","area":"x","source":"Facebook","mode":"online"}');
+    res := res || jsonb_build_object('test', 'anon: missing birth date refused', 'expected', 'error=birth', 'actual', r::text, 'pass', r->>'error' = 'birth');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","birthDate":"2000-01-01","area":"x","source":"Facebook","mode":"online"}');
+    res := res || jsonb_build_object('test', 'anon: missing governorate refused', 'expected', 'error=governorate', 'actual', r::text, 'pass', r->>'error' = 'governorate');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","birthDate":"2000-01-01","governorate":"Cairo","source":"Facebook","mode":"online"}');
+    res := res || jsonb_build_object('test', 'anon: missing area refused', 'expected', 'error=area', 'actual', r::text, 'pass', r->>'error' = 'area');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","birthDate":"2000-01-01","governorate":"Cairo","area":"x","mode":"online"}');
+    res := res || jsonb_build_object('test', 'anon: missing "how did you hear" refused', 'expected', 'error=source', 'actual', r::text, 'pass', r->>'error' = 'source');
+    r := public.attendance_signup_submit(tok, '{"name":"Test Student 3","phone":"01000000003","gender":"f","birthDate":"2099-01-01","governorate":"Cairo","area":"x","source":"Facebook","mode":"online"}');
+    res := res || jsonb_build_object('test', 'anon: birth date in the future refused', 'expected', 'error=birth', 'actual', r::text, 'pass', r->>'error' = 'birth');
 
     begin
       execute 'select count(*) from public.attendance_signups' into n; ok := false;
@@ -77,7 +89,7 @@ begin
     select count(*) into n from public.attendance_signups where data->>'courseId' = 'su_c1';
     res := res || jsonb_build_object('test', 'exactly one request stored', 'expected', '1', 'actual', n::text, 'pass', n = 1);
     select count(*) into n from public.attendance_signups
-      where data->>'courseId' = 'su_c1' and data->>'status' = 'pending' and not (data ? 'studentIds');
+      where data->>'courseId' = 'su_c1' and data->>'status' = 'pending' and not (data ? 'studentIds') and data->>'mode' = 'online' and data->>'area' = 'Test area';
     res := res || jsonb_build_object('test', 'extra fields from the form are ignored', 'expected', '1', 'actual', n::text, 'pass', n = 1);
 
     -- ======== attendance member ========
@@ -103,7 +115,7 @@ begin
     perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
     perform set_config('role', 'anon', true);
     for i in 1..45 loop
-      r := public.attendance_signup_submit(tok, jsonb_build_object('name', 'Flood ' || i, 'phone', '0109' || lpad(i::text, 7, '0'), 'gender', 'm'));
+      r := public.attendance_signup_submit(tok, jsonb_build_object('name', 'Flood ' || i, 'phone', '0109' || lpad(i::text, 7, '0'), 'gender', 'm', 'birthDate', '2000-01-01', 'governorate', 'Cairo', 'area', 'x', 'source', 'x', 'mode', 'offline'));
     end loop;
     res := res || jsonb_build_object('test', 'flooding one link gets blocked', 'expected', 'error=busy', 'actual', r::text, 'pass', r->>'error' = 'busy');
     perform set_config('role', me_role, true);
